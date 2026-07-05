@@ -22,11 +22,19 @@ def get_openai_key():
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 SUPPLIERS_URL = f"{API_BASE_URL}/suppliers"
-LOGO_PATH = "assets/AimoroLogo.PNG"
+LOGO_PATH = "assets/AimoroLogo.png"
+
+# Brand palette, reused across custom HTML badges and chart color maps so
+# the two stay in sync.
+PLATFORM_COLORS = {"Alibaba": "#c40000", "AliExpress": "#111827"}
+RISK_COLORS = {"Low Risk": "#15803d", "Medium Risk": "#b45309", "High Risk": "#b91c1c"}
+RISK_BADGE_COLOR = {"Low Risk": "green", "Medium Risk": "orange", "High Risk": "red"}
+
+px.defaults.template = "simple_white"
 
 st.set_page_config(
     page_title="Aimoro Smart Sourcing",
-    page_icon="🚀",
+    page_icon=LOGO_PATH,
     layout="wide"
 )
 
@@ -59,9 +67,8 @@ st.markdown("""
     margin-top: 4px;
 }
 
-.supplier-card {
+div[data-testid="stVerticalBlockBorderWrapper"] {
     background: #ffffff;
-    padding: 24px;
     border-radius: 18px;
     border: 1px solid #e5e7eb;
     box-shadow: 0px 6px 20px rgba(0,0,0,0.04);
@@ -88,14 +95,30 @@ st.markdown("""
 }
 
 .score-box {
-    background: #ecfdf5;
-    border: 1px solid #86efac;
-    color: #15803d;
     padding: 16px;
     border-radius: 14px;
     text-align: center;
     font-weight: 800;
     font-size: 26px;
+    border: 1px solid;
+}
+
+.score-high {
+    background: #ecfdf5;
+    border-color: #86efac;
+    color: #15803d;
+}
+
+.score-medium {
+    background: #fffbeb;
+    border-color: #fcd34d;
+    color: #b45309;
+}
+
+.score-low {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #b91c1c;
 }
 
 .stButton > button {
@@ -123,12 +146,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def get_risk_badge(risk_level):
-    if risk_level == "Low Risk":
-        return "🟢 Low Risk"
-    if risk_level == "Medium Risk":
-        return "🟡 Medium Risk"
-    return "🔴 High Risk"
+def get_score_tier(score):
+    if score >= 70:
+        return "score-high"
+    if score >= 45:
+        return "score-medium"
+    return "score-low"
 
 
 def save_supplier(supplier):
@@ -180,7 +203,7 @@ def build_comparison_df(suppliers):
 
 
 with st.sidebar:
-    st.image(LOGO_PATH, use_container_width=True)
+    st.image(LOGO_PATH, width="stretch")
 
     st.markdown("### Navigation")
     page = st.selectbox(
@@ -201,7 +224,7 @@ with st.sidebar:
 
 
 st.markdown(
-    '<p class="aimoro-title">Welcome back! 👋</p>',
+    '<p class="aimoro-title">Welcome back!</p>',
     unsafe_allow_html=True
 )
 
@@ -277,79 +300,82 @@ if page in ["Dashboard", "Find Suppliers"]:
                     st.subheader("Top Supplier Matches")
 
                     for index, supplier in enumerate(suppliers):
-                        st.markdown(
-                            '<div class="supplier-card">',
-                            unsafe_allow_html=True
-                        )
+                        with st.container(border=True):
+                            if index == 0:
+                                st.markdown(
+                                    '<span class="best-match">Best Match</span>',
+                                    unsafe_allow_html=True
+                                )
 
-                        if index == 0:
-                            st.markdown(
-                                '<span class="best-match">Best Match</span>',
-                                unsafe_allow_html=True
+                            left, middle, score_col, action_col = st.columns(
+                                [2.5, 3, 1.2, 1.5]
                             )
 
-                        left, middle, score_col, action_col = st.columns(
-                            [2.5, 3, 1.2, 1.5]
-                        )
+                            with left:
+                                st.markdown(
+                                    f"<span class='platform-badge'>{supplier['platform']}</span>",
+                                    unsafe_allow_html=True
+                                )
+                                st.subheader(supplier["name"])
+                                st.write(
+                                    f"{supplier['country']} · {supplier['product']}"
+                                )
 
-                        with left:
-                            st.markdown(
-                                f"<span class='platform-badge'>{supplier['platform']}</span>",
-                                unsafe_allow_html=True
-                            )
-                            st.subheader(supplier["name"])
-                            st.write(
-                                f"📍 {supplier['country']} · {supplier['product']}"
-                            )
+                            with middle:
+                                c1, c2, c3, c4 = st.columns(4)
 
-                        with middle:
-                            c1, c2, c3, c4 = st.columns(4)
+                                c1.write(f"**${supplier['unit_price']}**")
+                                c1.caption("Unit Price")
 
-                            c1.write(f"**${supplier['unit_price']}**")
-                            c1.caption("Unit Price")
+                                c2.write(f"**{supplier['minimum_order_quantity']}**")
+                                c2.caption("MOQ")
 
-                            c2.write(f"**{supplier['minimum_order_quantity']}**")
-                            c2.caption("MOQ")
+                                c3.write(f"**{supplier['rating']}**")
+                                c3.caption("Rating")
 
-                            c3.write(f"**⭐ {supplier['rating']}**")
-                            c3.caption("Rating")
+                                c4.write(f"**{supplier['delivery_days']} Days**")
+                                c4.caption("Delivery")
 
-                            c4.write(f"**{supplier['delivery_days']} Days**")
-                            c4.caption("Delivery")
+                                st.write("**Risk**")
+                                st.badge(
+                                    supplier["risk_level"],
+                                    color=RISK_BADGE_COLOR[supplier["risk_level"]]
+                                )
+                                st.info(supplier["recommendation"])
 
-                            st.write(
-                                f"**Risk:** {get_risk_badge(supplier['risk_level'])}"
-                            )
-                            st.info(supplier["recommendation"])
+                            with score_col:
+                                tier = get_score_tier(supplier["aimoro_score"])
+                                st.markdown(
+                                    f"""
+                                    <div class='score-box {tier}'>
+                                        {supplier['aimoro_score']}%<br>
+                                        <small>Match Score</small>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
 
-                        with score_col:
-                            st.markdown(
-                                f"""
-                                <div class='score-box'>
-                                    {supplier['aimoro_score']}%<br>
-                                    <small>Match Score</small>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
+                            with action_col:
+                                if st.button("Save", key=f"save_{supplier['id']}"):
+                                    save_supplier(supplier)
 
-                        with action_col:
-                            if st.button("Save", key=f"save_{supplier['id']}"):
-                                save_supplier(supplier)
-
-                            st.link_button(
-                                f"View on {supplier['platform']}",
-                                supplier["supplier_url"]
-                            )
-
-                        st.markdown("</div>", unsafe_allow_html=True)
+                                st.link_button(
+                                    f"View on {supplier['platform']}",
+                                    supplier["supplier_url"]
+                                )
 
                 with tab2:
                     st.subheader("Supplier Comparison Table")
 
                     st.dataframe(
                         comparison_df,
-                        use_container_width=True
+                        hide_index=True,
+                        width="stretch",
+                        column_config={
+                            "Score": st.column_config.ProgressColumn(
+                                "Score", min_value=0, max_value=100, format="%.1f"
+                            )
+                        }
                     )
 
                 with tab3:
@@ -360,12 +386,13 @@ if page in ["Dashboard", "Find Suppliers"]:
                         x="Supplier",
                         y="Price",
                         color="Platform",
+                        color_discrete_map=PLATFORM_COLORS,
                         text="Price"
                     )
 
                     st.plotly_chart(
                         price_chart,
-                        use_container_width=True
+                        width="stretch"
                     )
 
                     st.subheader("Supplier Match Scores")
@@ -375,24 +402,27 @@ if page in ["Dashboard", "Find Suppliers"]:
                         x="Supplier",
                         y="Score",
                         color="Risk",
+                        color_discrete_map=RISK_COLORS,
                         text="Score"
                     )
 
                     st.plotly_chart(
                         score_chart,
-                        use_container_width=True
+                        width="stretch"
                     )
 
                     st.subheader("Platform Distribution")
 
                     platform_chart = px.pie(
                         comparison_df,
-                        names="Platform"
+                        names="Platform",
+                        color="Platform",
+                        color_discrete_map=PLATFORM_COLORS
                     )
 
                     st.plotly_chart(
                         platform_chart,
-                        use_container_width=True
+                        width="stretch"
                     )
 
                     st.subheader("Risk Distribution")
@@ -400,12 +430,13 @@ if page in ["Dashboard", "Find Suppliers"]:
                     risk_chart = px.histogram(
                         comparison_df,
                         x="Risk",
-                        color="Risk"
+                        color="Risk",
+                        color_discrete_map=RISK_COLORS
                     )
 
                     st.plotly_chart(
                         risk_chart,
-                        use_container_width=True
+                        width="stretch"
                     )
 
         except requests.exceptions.ConnectionError:
@@ -426,10 +457,11 @@ elif page == "Saved Suppliers":
     else:
         for supplier in saved_suppliers:
             with st.container(border=True):
-                st.write(
-                    f"✅ **{supplier['name']}** | {supplier['platform']} | "
-                    f"{supplier['country']} | {supplier['product']} | "
-                    f"${supplier['unit_price']} | Rating: {supplier['rating']}"
+                st.markdown(f"**{supplier['name']}**")
+                st.caption(
+                    f"{supplier['platform']} · {supplier['country']} · "
+                    f"{supplier['product']} · ${supplier['unit_price']} · "
+                    f"Rating {supplier['rating']}"
                 )
 
                 if st.button(
@@ -453,25 +485,28 @@ elif page == "Analytics":
         col2.metric("Active Platforms", saved_df["platform"].nunique())
         col3.metric("Average Saved Price", f"${saved_df['unit_price'].mean():.2f}")
 
-        st.dataframe(saved_df, use_container_width=True)
+        st.dataframe(saved_df, hide_index=True, width="stretch")
 
         platform_chart = px.pie(
             saved_df,
             names="platform",
+            color="platform",
+            color_discrete_map=PLATFORM_COLORS,
             title="Saved Suppliers by Platform"
         )
 
-        st.plotly_chart(platform_chart, use_container_width=True)
+        st.plotly_chart(platform_chart, width="stretch")
 
         price_chart = px.bar(
             saved_df,
             x="name",
             y="unit_price",
             color="platform",
+            color_discrete_map=PLATFORM_COLORS,
             title="Saved Supplier Prices"
         )
 
-        st.plotly_chart(price_chart, use_container_width=True)
+        st.plotly_chart(price_chart, width="stretch")
 
 
 elif page == "AI Assistant":
