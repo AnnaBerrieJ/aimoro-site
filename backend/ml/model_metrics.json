@@ -1,0 +1,27 @@
+{
+  "mae": 17.047,
+  "r2": 0.491,
+  "n_train": 480,
+  "n_test": 120,
+  "feature_importances": {
+    "rating": 0.2925,
+    "verified": 0.2373,
+    "unit_price": 0.187,
+    "delivery_days": 0.1545,
+    "minimum_order_quantity": 0.0863,
+    "platform_AliExpress": 0.0139,
+    "platform_Alibaba": 0.0128,
+    "country_India": 0.0076,
+    "country_Bangladesh": 0.0043,
+    "country_China": 0.0021,
+    "country_Vietnam": 0.0018
+  },
+  "baseline_formula": {
+    "mae": 27.045,
+    "r2": -0.284
+  },
+  "improvement_over_baseline": {
+    "mae_reduction_pct": 37.0,
+    "r2_delta": 0.775
+  }
+}
