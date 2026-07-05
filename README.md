@@ -119,8 +119,10 @@ Set these in `.env` (see `.env.example`):
 
 ```
 backend/
-  main.py              FastAPI app: scoring, risk, recommendations, endpoints
-  suppliers.py          Hardcoded supplier catalog (demo data)
+  main.py                FastAPI app: scoring, risk, recommendations, endpoints
+  suppliers.py            Loads the demo supplier catalog (supplier_catalog.json)
+  supplier_catalog.json    250 generated suppliers across 4 countries, 10 products
+  generate_supplier_catalog.py  Regenerates supplier_catalog.json
   database.py            SQLite persistence for saved suppliers
   ml/
     generate_dataset.py  Synthetic training data generator
@@ -136,6 +138,6 @@ frontend/
 ## Future improvements
 
 - Replace synthetic training labels with real outcome data (saves, completed orders, disputes) once available
-- Expand the supplier catalog beyond the current demo dataset
+- Wire up the AliExpress Affiliate API for real product listings (Alibaba/AliExpress don't expose a public "full vendor database" API, so the catalog is generated demo data — see `backend/generate_supplier_catalog.py`)
 - Add automated tests for scoring/risk logic and API endpoints
 - Add CI (lint + test) on push
