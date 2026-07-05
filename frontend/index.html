@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aimoro Smart Sourcing</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>Aimoro Smart Sourcing System</h1>
+
+   <div class="summary-card">
+    <h3>Saved Suppliers</h3>
+    <p id="saved-suppliers">0</p>
+</div>
+        <h3>Total Suppliers</h3>
+        <p id="total-suppliers">0</p>
+    </div>
+
+    <div class="summary-card">
+        <h3>Verified Suppliers</h3>
+        <p id="verified-suppliers">0</p>
+    </div>
+
+    <div class="summary-card">
+        <h3>Average Price</h3>
+        <p id="average-price">$0.00</p>
+    </div>
+</div>
+
+    <div class="filters">
+
+        <input
+            type="text"
+            id="product-search"
+            placeholder="Search Product"
+        >
+
+        <input
+            type="text"
+            id="country-filter"
+            placeholder="Country"
+        >
+
+        <input
+            type="number"
+            id="max-price-filter"
+            placeholder="Max Price"
+        >
+
+        <label>
+            <input
+                type="checkbox"
+                id="verified-filter"
+            >
+            Verified Only
+        </label>
+
+        <button onclick="loadSuppliers()">
+            Search Suppliers
+        </button>
+
+    </div>
+    <div class="summary-grid">
+    <div class="summary-card">
+        <h3>Total Suppliers</h3>
+        <p id="total-suppliers">0</p>
+    </div>
+
+    <div class="summary-card">
+        <h3>Verified Suppliers</h3>
+        <p id="verified-suppliers">0</p>
+    </div>
+
+    <div class="summary-card">
+        <h3>Average Price</h3>
+        <p id="average-price">$0</p>
+    </div>
+    </div>
+
+    <div id="supplier-list"></div>
+
+    <script src="app.js"></script>
+
+</body>
+</html>
