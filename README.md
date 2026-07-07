@@ -1,5 +1,7 @@
 # Aimoro Smart Sourcing
 
+**Live demo: [aimoro.co](https://aimoro.co)** (backend API: [aimoro-backend.onrender.com](https://aimoro-backend.onrender.com))
+
 Aimoro is a supplier-sourcing tool for ecommerce sellers evaluating Alibaba and AliExpress suppliers. You search by product, country, and price, and Aimoro ranks the results with a trained ML model, flags a risk level, and explains why each supplier is (or isn't) worth pursuing.
 
 A FastAPI backend serves supplier data, scoring, and persistence. A Streamlit frontend provides the search UI, comparison tables, analytics charts, and an OpenAI-powered sourcing assistant.
@@ -112,8 +114,13 @@ Set these in `.env` (see `.env.example`):
 
 ## Deployment
 
-- **Backend**: containerized via `backend/Dockerfile`, or deployable directly on Render/Railway using `backend/Procfile` (`web: uvicorn main:app --host 0.0.0.0 --port $PORT`). Set `ALLOWED_ORIGINS` to your deployed frontend URL.
-- **Frontend**: deploy `frontend/app.py` on Streamlit Community Cloud. Set `OPENAI_API_KEY` and `API_BASE_URL` in the app's Secrets/Environment settings (the app reads `OPENAI_API_KEY` from either `.env` or `st.secrets`, so no code changes are needed).
+Both services run on Render as separate Web Services from this repo, which is what powers the live demo above:
+
+- **Backend**: Root Directory `backend`, auto-detected via `backend/Dockerfile`. Env vars: `ALLOWED_ORIGINS` set to the frontend's URL.
+- **Frontend**: Root Directory `frontend`, Python runtime using `frontend/Procfile` (`web: streamlit run app.py --server.port $PORT --server.address 0.0.0.0`). Env vars: `OPENAI_API_KEY`, `API_BASE_URL` set to the backend's URL.
+- The custom domain (`aimoro.co`) is attached to the **frontend** service in Render's Custom Domains settings, with DNS records pointed at it from the domain registrar.
+
+Streamlit Community Cloud is also an option for the frontend (it reads `OPENAI_API_KEY` from either `.env` or `st.secrets`, so no code changes needed) — Render was chosen here specifically because Streamlit Community Cloud's free tier doesn't support custom domains.
 
 ## Project structure
 
