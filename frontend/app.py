@@ -5,7 +5,8 @@ import plotly.express as px
 from dotenv import load_dotenv
 import os
 
-load_dotenv(dotenv_path=".env")
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(dotenv_path=os.path.join(REPO_ROOT, ".env"))
 
 
 def get_openai_key():
@@ -213,6 +214,7 @@ with st.sidebar:
             "Find Suppliers",
             "Saved Suppliers",
             "Analytics",
+            "Negotiate",
             "AI Assistant"
         ],
         label_visibility="collapsed"
@@ -461,15 +463,28 @@ elif page == "Saved Suppliers":
                 st.caption(
                     f"{supplier['platform']} · {supplier['country']} · "
                     f"{supplier['product']} · ${supplier['unit_price']} · "
+                    f"MOQ {supplier['minimum_order_quantity']} · "
+                    f"{supplier['delivery_days']} days · "
                     f"Rating {supplier['rating']}"
+                    + (" · Verified" if supplier["verified"] else "")
                 )
 
-                if st.button(
-                    f"Delete {supplier['name']}",
-                    key=f"delete_{supplier['id']}"
-                ):
-                    delete_saved_supplier(supplier["id"])
-                    st.rerun()
+                col1, col2 = st.columns([1, 4])
+
+                with col1:
+                    if st.button(
+                        f"Delete {supplier['name']}",
+                        key=f"delete_{supplier['id']}"
+                    ):
+                        delete_saved_supplier(supplier["id"])
+                        st.rerun()
+
+                with col2:
+                    if supplier["supplier_url"]:
+                        st.link_button(
+                            f"View on {supplier['platform']}",
+                            supplier["supplier_url"]
+                        )
 
 
 elif page == "Analytics":
@@ -507,6 +522,118 @@ elif page == "Analytics":
         )
 
         st.plotly_chart(price_chart, width="stretch")
+
+
+elif page == "Negotiate":
+
+    from openai import OpenAI
+
+    OPENAI_API_KEY = get_openai_key()
+
+    if not OPENAI_API_KEY:
+        st.error("Missing OPENAI_API_KEY. Set it in .env (local) or Streamlit secrets (cloud).")
+        st.stop()
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    st.subheader("Negotiation Assistant")
+    st.write(
+        "Aimoro AI drafts a negotiation message based on a saved supplier's "
+        "listing and your target terms. Review and edit it, then send it "
+        "yourself — Aimoro doesn't contact suppliers directly."
+    )
+
+    if len(saved_suppliers) == 0:
+        st.info("Save a supplier first (Find Suppliers → Save) to negotiate with them.")
+    else:
+        supplier_options = {
+            f"{s['name']} ({s['platform']}, ${s['unit_price']})": s
+            for s in saved_suppliers
+        }
+        selected_label = st.selectbox("Supplier", list(supplier_options.keys()))
+        supplier = supplier_options[selected_label]
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            target_price = st.number_input(
+                "Target unit price ($)",
+                min_value=0.01,
+                value=round(max(supplier["unit_price"] * 0.85, 0.01), 2)
+            )
+
+        with col2:
+            order_quantity = st.number_input("Order quantity", min_value=1, value=500)
+
+        with col3:
+            target_delivery_days = st.number_input(
+                "Target delivery (days)", min_value=1, value=14
+            )
+
+        notes = st.text_area(
+            "Additional asks or context (optional)",
+            placeholder="e.g. first-time buyer, want a sample before committing, looking for a long-term partner"
+        )
+
+        if st.button("Draft Negotiation Message"):
+            with st.spinner("Drafting message..."):
+                try:
+                    completion = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": """
+                                You are Aimoro AI, drafting a negotiation email from
+                                a buyer to a supplier on Alibaba/AliExpress. Write a
+                                polite, professional, and firm message that:
+                                - references the supplier's current listing
+                                - states the buyer's target price, order quantity,
+                                  and delivery timeline as a clear ask
+                                - gives the supplier a reason to agree (order
+                                  volume, potential for repeat business, etc.)
+                                - ends with a clear call to action requesting a
+                                  reply
+
+                                Keep it under 200 words. Output only the message
+                                text, ready to copy and send, with no commentary
+                                before or after it.
+                                """
+                            },
+                            {
+                                "role": "user",
+                                "content": (
+                                    f"Supplier: {supplier['name']} on {supplier['platform']}\n"
+                                    f"Listed unit price: ${supplier['unit_price']}\n"
+                                    f"Listed MOQ: {supplier['minimum_order_quantity']}\n"
+                                    f"Listed delivery: {supplier['delivery_days']} days\n"
+                                    f"Rating: {supplier['rating']}, "
+                                    f"Verified: {bool(supplier['verified'])}\n\n"
+                                    f"My target unit price: ${target_price}\n"
+                                    f"My order quantity: {order_quantity}\n"
+                                    f"My target delivery: {target_delivery_days} days\n"
+                                    f"Additional notes: {notes or 'none'}"
+                                )
+                            }
+                        ]
+                    )
+
+                    st.session_state["negotiation_draft"] = completion.choices[0].message.content
+
+                except Exception as error:
+                    st.error(f"AI Error: {error}")
+
+        if "negotiation_draft" in st.session_state:
+            st.text_area(
+                "Drafted message (edit before sending)",
+                value=st.session_state["negotiation_draft"],
+                height=250,
+                key="negotiation_draft_editable"
+            )
+            st.caption(
+                "Copy this into an email or the platform's messaging tool to "
+                "send it yourself."
+            )
 
 
 elif page == "AI Assistant":

@@ -17,7 +17,11 @@ def create_tables():
             country TEXT,
             product TEXT,
             unit_price REAL,
-            rating REAL
+            rating REAL,
+            minimum_order_quantity INTEGER,
+            delivery_days INTEGER,
+            verified INTEGER,
+            supplier_url TEXT
         )
     """)
 
@@ -31,9 +35,10 @@ def save_supplier_to_db(supplier):
 
     cursor.execute("""
         INSERT INTO saved_suppliers (
-            supplier_id, name, platform, country, product, unit_price, rating
+            supplier_id, name, platform, country, product, unit_price, rating,
+            minimum_order_quantity, delivery_days, verified, supplier_url
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         supplier["id"],
         supplier["name"],
@@ -41,7 +46,11 @@ def save_supplier_to_db(supplier):
         supplier["country"],
         supplier["product"],
         supplier["unit_price"],
-        supplier["rating"]
+        supplier["rating"],
+        supplier["minimum_order_quantity"],
+        supplier["delivery_days"],
+        int(supplier["verified"]),
+        supplier["supplier_url"]
     ))
 
     connection.commit()
