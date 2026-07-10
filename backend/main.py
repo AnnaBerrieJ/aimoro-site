@@ -25,7 +25,9 @@ try:
     _model = joblib.load(MODEL_PATH)
     with open(METRICS_PATH) as f:
         _feature_importances = json.load(f).get("feature_importances", {})
-except FileNotFoundError:
+except Exception:
+    # Covers a missing model file as well as unpickling failures from a
+    # scikit-learn version mismatch between training time and runtime.
     _model = None
 
 # Comma-separated list of allowed origins, e.g. "http://localhost:8501,https://aimoro.com"

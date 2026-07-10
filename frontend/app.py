@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import plotly.express as px
 from dotenv import load_dotenv
+import base64
 import os
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -41,8 +42,14 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-.main {
-    background-color: #f8fafc;
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+}
+
+.stApp {
+    background: radial-gradient(circle at 14% 0%, #fff3f3 0%, #f8fafc 42%);
 }
 
 [data-testid="stSidebar"] {
@@ -56,34 +63,57 @@ st.markdown("""
 }
 
 .aimoro-title {
-    font-size: 34px;
+    font-size: 36px;
     font-weight: 800;
+    letter-spacing: -0.02em;
     color: #111827;
     margin-bottom: 0;
 }
 
 .aimoro-subtitle {
     color: #6b7280;
-    font-size: 16px;
+    font-size: 16.5px;
+    font-weight: 500;
     margin-top: 4px;
 }
 
+/* ---------- Cards ---------- */
 div[data-testid="stVerticalBlockBorderWrapper"] {
     background: #ffffff;
     border-radius: 18px;
     border: 1px solid #e5e7eb;
-    box-shadow: 0px 6px 20px rgba(0,0,0,0.04);
+    box-shadow: 0px 10px 28px rgba(17, 24, 39, 0.05);
     margin-bottom: 18px;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 200ms ease, transform 200ms ease;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #c40000, #ff5a5a 55%, #c40000);
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    box-shadow: 0px 16px 36px rgba(17, 24, 39, 0.09);
+    transform: translateY(-2px);
 }
 
 .best-match {
-    background: #c40000;
+    background: linear-gradient(90deg, #c40000, #950000);
     color: white;
     padding: 6px 14px;
     border-radius: 999px;
     font-weight: 700;
+    letter-spacing: 0.01em;
     display: inline-block;
     margin-bottom: 12px;
+    box-shadow: 0 6px 16px rgba(196, 0, 0, 0.28);
 }
 
 .platform-badge {
@@ -93,47 +123,54 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     border-radius: 999px;
     font-size: 13px;
     font-weight: 700;
+    border: 1px solid rgba(196, 0, 0, 0.12);
 }
 
 .score-box {
-    padding: 16px;
-    border-radius: 14px;
+    padding: 18px 12px;
+    border-radius: 16px;
     text-align: center;
     font-weight: 800;
     font-size: 26px;
     border: 1px solid;
+    box-shadow: 0px 8px 20px rgba(17, 24, 39, 0.05);
 }
 
 .score-high {
-    background: #ecfdf5;
+    background: linear-gradient(180deg, #ecfdf5, #ffffff);
     border-color: #86efac;
     color: #15803d;
 }
 
 .score-medium {
-    background: #fffbeb;
+    background: linear-gradient(180deg, #fffbeb, #ffffff);
     border-color: #fcd34d;
     color: #b45309;
 }
 
 .score-low {
-    background: #fef2f2;
+    background: linear-gradient(180deg, #fef2f2, #ffffff);
     border-color: #fca5a5;
     color: #b91c1c;
 }
 
+/* ---------- Buttons (main content) ---------- */
 .stButton > button {
-    background: #c40000;
+    background: linear-gradient(90deg, #c40000, #950000);
     color: white;
     border: none;
     border-radius: 12px;
     padding: 10px 18px;
     font-weight: 700;
+    box-shadow: 0 8px 20px rgba(196, 0, 0, 0.22);
+    transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
 }
 
 .stButton > button:hover {
-    background: #990000;
     color: white;
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+    box-shadow: 0 10px 24px rgba(196, 0, 0, 0.3);
 }
 
 [data-testid="stMetric"] {
@@ -141,7 +178,142 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     padding: 20px;
     border-radius: 18px;
     border: 1px solid #f1d0d0;
-    box-shadow: 0px 6px 20px rgba(0,0,0,0.05);
+    box-shadow: 0px 10px 24px rgba(17, 24, 39, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+[data-testid="stMetric"]::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #c40000, #ff5a5a 55%, #c40000);
+}
+
+/* Let metric labels wrap onto two lines instead of truncating with an
+   ellipsis when the card is narrower than the label text. */
+[data-testid="stMetricLabel"] {
+    white-space: normal !important;
+    overflow: visible !important;
+    line-height: 1.3 !important;
+}
+
+[data-testid="stMetricLabel"] p {
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+}
+
+/* ---------- Sidebar navigation ---------- */
+section[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
+    background: transparent !important;
+    color: #374151 !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding-left: 14px !important;
+    transform: none !important;
+}
+
+section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
+    background: #fff1f1 !important;
+    color: #c40000 !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+    background: linear-gradient(90deg, #c40000, #950000) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(196, 0, 0, 0.28) !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding-left: 14px !important;
+}
+
+/* ---------- Dashboard: hero ---------- */
+.hero-panel {
+    background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
+    border: 1px solid #f1d0d0;
+    border-radius: 22px;
+    padding: 34px 38px;
+    margin-bottom: 26px;
+    box-shadow: 0px 14px 34px rgba(17, 24, 39, 0.06);
+}
+
+.hero-eyebrow {
+    display: inline-block;
+    background: #fff1f1;
+    color: #c40000;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+}
+
+.hero-heading {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #111827;
+    margin: 0 0 12px 0;
+}
+
+.hero-copy {
+    font-size: 16px;
+    color: #4b5563;
+    line-height: 1.65;
+    max-width: 780px;
+    margin: 0;
+}
+
+.section-heading {
+    font-size: 20px;
+    font-weight: 800;
+    color: #111827;
+    margin: 30px 0 14px 0;
+}
+
+.step-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 22px 20px;
+    height: 100%;
+    box-shadow: 0px 10px 24px rgba(17, 24, 39, 0.04);
+}
+
+.step-number {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #c40000, #950000);
+    color: #ffffff;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.step-title {
+    font-weight: 700;
+    font-size: 16px;
+    color: #111827;
+    margin-bottom: 6px;
+}
+
+.step-copy {
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.55;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -167,6 +339,22 @@ def save_supplier(supplier):
 def get_saved_suppliers():
     try:
         response = requests.get(f"{API_BASE_URL}/saved-suppliers")
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.RequestException:
+        return []
+
+    return []
+
+
+def get_catalog_snapshot():
+    """Fetches the full unfiltered supplier catalog, used only to power
+    Dashboard stats (total suppliers, verified count, platforms)."""
+    try:
+        response = requests.get(
+            SUPPLIERS_URL,
+            params={"product": "", "country": "", "max_price": 999999, "verified": False}
+        )
         if response.status_code == 200:
             return response.json()
     except requests.exceptions.RequestException:
@@ -203,42 +391,177 @@ def build_comparison_df(suppliers):
     return pd.DataFrame(comparison_data)
 
 
+def render_dashboard(saved_suppliers):
+    catalog = get_catalog_snapshot()
+    total_catalog = len(catalog)
+    verified_catalog = len([s for s in catalog if s["verified"]])
+    platforms_covered = len(set(s["platform"] for s in catalog)) if catalog else 0
+
+    st.markdown(
+        """
+        <div class="hero-panel">
+            <span class="hero-eyebrow">AI-Powered Sourcing Intelligence</span>
+            <h1 class="hero-heading">Source smarter from Alibaba &amp; AliExpress</h1>
+            <p class="hero-copy">
+                Aimoro searches, scores, and risk-checks suppliers across both
+                platforms in seconds, then helps you negotiate better terms
+                with an AI-drafted message. Compare offers side by side, save
+                the ones worth pursuing, and move from research to outreach
+                without leaving the app.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Suppliers in Catalog", total_catalog if catalog else "—")
+    col2.metric("Verified Suppliers", verified_catalog if catalog else "—")
+    col3.metric("Platforms Covered", platforms_covered if catalog else "—")
+    col4.metric("Saved by You", len(saved_suppliers))
+
+    if not catalog:
+        st.warning(
+            "Backend is not running, so live catalog stats aren't available. "
+            "Start FastAPI to see real numbers here."
+        )
+
+    st.markdown('<div class="section-heading">How Aimoro Works</div>', unsafe_allow_html=True)
+
+    steps = [
+        ("1", "Search &amp; Score", "Enter a product, country, and price target. Aimoro's ML model ranks every match by price, rating, delivery speed, and verification."),
+        ("2", "Compare &amp; Save", "Review suppliers side by side with risk levels and plain-language recommendations, then shortlist the strongest candidates."),
+        ("3", "Negotiate with AI", "Aimoro AI drafts a professional negotiation message using your target price and terms — you review, edit, and send it yourself."),
+    ]
+
+    step_cols = st.columns(3)
+    for col, (num, title, copy) in zip(step_cols, steps):
+        with col:
+            st.markdown(
+                f"""
+                <div class="step-card">
+                    <div class="step-number">{num}</div>
+                    <div class="step-title">{title}</div>
+                    <div class="step-copy">{copy}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    st.markdown('<div class="section-heading">Jump Back In</div>', unsafe_allow_html=True)
+
+    quick_links = [
+        ("Find Suppliers", "Run a new sourcing search"),
+        ("Saved Suppliers", f"{len(saved_suppliers)} shortlisted"),
+        ("Analytics", "Review saved-supplier trends"),
+        ("Negotiate", "Draft an AI negotiation message"),
+    ]
+
+    link_cols = st.columns(4)
+    for col, (label, caption) in zip(link_cols, quick_links):
+        with col:
+            st.caption(caption)
+            if st.button(label, key=f"quicklink_{label}", use_container_width=True):
+                st.session_state.page = label
+                st.rerun()
+
+
+if "page" not in st.session_state:
+    st.session_state.page = "Dashboard"
+
+_logo_b64 = base64.b64encode(open(LOGO_PATH, "rb").read()).decode()
+
+st.markdown(
+    f"""
+    <style>
+    section[data-testid="stSidebar"] .st-key-logo_home button {{
+        background-image: url("data:image/png;base64,{_logo_b64}") !important;
+        background-size: 38px 38px !important;
+        background-repeat: no-repeat !important;
+        background-position: 10px center !important;
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        height: 58px !important;
+        min-height: 58px !important;
+        padding-left: 60px !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        transition: opacity 160ms ease;
+    }}
+
+    section[data-testid="stSidebar"] .st-key-logo_home button:hover {{
+        opacity: 0.75 !important;
+        background-color: transparent !important;
+    }}
+
+    section[data-testid="stSidebar"] .st-key-logo_home button p {{
+        font-size: 16px !important;
+        font-weight: 800 !important;
+        color: #111827 !important;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+nav_items = [
+    "Dashboard",
+    "Find Suppliers",
+    "Saved Suppliers",
+    "Analytics",
+    "Negotiate",
+    "AI Assistant",
+]
+
 with st.sidebar:
-    st.image(LOGO_PATH, width="stretch")
+    with st.container(key="logo_home"):
+        if st.button(
+            "Aimoro Smart Sourcing",
+            key="logo_home_btn",
+            use_container_width=True,
+            help="Go to Dashboard",
+        ):
+            st.session_state.page = "Dashboard"
+            st.rerun()
 
     st.markdown("### Navigation")
-    page = st.selectbox(
-        "Navigation",
-        [
-            "Dashboard",
-            "Find Suppliers",
-            "Saved Suppliers",
-            "Analytics",
-            "Negotiate",
-            "AI Assistant"
-        ],
-        label_visibility="collapsed"
-    )
+
+    for item in nav_items:
+        is_active = st.session_state.page == item
+        if st.button(
+            item,
+            key=f"nav_{item}",
+            use_container_width=True,
+            type="primary" if is_active else "secondary",
+        ):
+            st.session_state.page = item
+            st.rerun()
 
     st.divider()
     st.markdown("### Aimoro")
     st.write("Innovate. Elevate. Dominate.")
 
+page = st.session_state.page
 
-st.markdown(
-    '<p class="aimoro-title">Welcome back!</p>',
-    unsafe_allow_html=True
-)
+if page != "Dashboard":
+    st.markdown(
+        '<p class="aimoro-title">Welcome back!</p>',
+        unsafe_allow_html=True
+    )
 
-st.markdown(
-    '<p class="aimoro-subtitle">Find, compare, and save Alibaba/AliExpress suppliers.</p>',
-    unsafe_allow_html=True
-)
+    st.markdown(
+        '<p class="aimoro-subtitle">Find, compare, and save Alibaba/AliExpress suppliers.</p>',
+        unsafe_allow_html=True
+    )
 
 saved_suppliers = get_saved_suppliers()
 
 
-if page in ["Dashboard", "Find Suppliers"]:
+if page == "Dashboard":
+    render_dashboard(saved_suppliers)
+
+elif page == "Find Suppliers":
     st.subheader("Find the Best Suppliers")
 
     col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
