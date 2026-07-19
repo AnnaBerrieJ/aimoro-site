@@ -19,35 +19,35 @@ const TEMPLATES: Template[] = [
   {
     id: 'first-contact',
     label: 'First Contact',
-    icon: '👋',
+    icon: '',
     notes: 'This is my first time reaching out. I am an ecommerce seller looking for a reliable long-term supplier.',
     prompt: 'Write a professional first-contact introduction email. Be warm, brief, and express genuine interest in a long-term partnership.',
   },
   {
     id: 'sample-request',
     label: 'Sample Request',
-    icon: '📦',
+    icon: '',
     notes: 'I would like to order product samples before committing to a bulk order. Please include sample cost and shipping options.',
     prompt: 'Write a concise sample request email. Ask about sample cost, lead time, and shipping. Mention interest in bulk orders if quality is confirmed.',
   },
   {
     id: 'price-negotiation',
     label: 'Price Negotiation',
-    icon: '💰',
+    icon: '',
     notes: 'I have quotes from competing suppliers. I prefer this supplier but need a better price to proceed.',
     prompt: 'Write a firm but respectful price negotiation email. Reference competitor pricing implicitly, emphasise order volume, and ask for their best price.',
   },
   {
     id: 'bulk-order',
     label: 'Bulk Order',
-    icon: '🚚',
+    icon: '',
     notes: 'I am ready to place a large bulk order. I need confirmation of stock availability, production lead time, and shipping options.',
     prompt: 'Write a bulk order enquiry email. Ask about stock availability, lead time, packaging options, and preferred payment method.',
   },
   {
     id: 'payment-terms',
     label: 'Payment Terms',
-    icon: '🤝',
+    icon: '',
     notes: 'I would like to discuss payment terms — specifically whether 30% upfront and 70% on delivery is acceptable.',
     prompt: 'Write a professional email to negotiate payment terms. Propose 30/70 split or trade credit, and explain that flexible terms will enable larger and more frequent orders.',
   },
@@ -280,13 +280,12 @@ export default function NegotiatePage() {
                       setNotes(t.notes)
                     }
                   }}
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
                     activeTemplate?.id === t.id
                       ? 'bg-[#0f172a] text-white border-[#0f172a]'
                       : 'bg-white text-slate-600 border-slate-200 hover:border-[#c40000]/30 hover:text-[#c40000]'
                   }`}
                 >
-                  <span>{t.icon}</span>
                   {t.label}
                 </button>
               ))}
