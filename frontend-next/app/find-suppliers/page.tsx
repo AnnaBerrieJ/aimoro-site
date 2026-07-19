@@ -8,6 +8,7 @@ import { SupplierCard } from '@/components/SupplierCard'
 import { RiskBadge } from '@/components/RiskBadge'
 import { PriceBarChart, ScoreBarChart, PlatformPieChart, RiskBarChart } from '@/components/charts/SupplierCharts'
 import { CompareModal } from '@/components/CompareModal'
+import { SupplierDrawer } from '@/components/SupplierDrawer'
 
 type Tab = 'results' | 'table' | 'analytics'
 
@@ -40,6 +41,7 @@ export default function FindSuppliersPage() {
   const [history, setHistory] = useState<SearchEntry[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [compareOpen, setCompareOpen] = useState(false)
+  const [drawerSupplier, setDrawerSupplier] = useState<Supplier | null>(null)
 
   useEffect(() => { setHistory(loadHistory()) }, [])
 
@@ -270,7 +272,10 @@ export default function FindSuppliersPage() {
                       className="w-4 h-4 accent-[#c40000] cursor-pointer"
                     />
                   </label>
-                  <div className={`pl-8 transition-all rounded-2xl ${selected.has(s.id) ? 'ring-2 ring-[#c40000]/40' : ''}`}>
+                  <div
+                    className={`pl-8 transition-all rounded-2xl cursor-pointer ${selected.has(s.id) ? 'ring-2 ring-[#c40000]/40' : ''}`}
+                    onClick={e => { if ((e.target as HTMLElement).closest('button,a,input')) return; setDrawerSupplier(s) }}
+                  >
                     <SupplierCard supplier={s} isFirst={i === 0} onSave={handleSave} saving={savingId === s.id} />
                   </div>
                 </div>
@@ -342,6 +347,13 @@ export default function FindSuppliersPage() {
       {compareOpen && (
         <CompareModal suppliers={selectedSuppliers} onClose={() => setCompareOpen(false)} />
       )}
+
+      <SupplierDrawer
+        supplier={drawerSupplier}
+        onClose={() => setDrawerSupplier(null)}
+        onSave={s => { handleSave(s); setDrawerSupplier(null) }}
+        saving={drawerSupplier ? savingId === drawerSupplier.id : false}
+      />
     </div>
   )
 }

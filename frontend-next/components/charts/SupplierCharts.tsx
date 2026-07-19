@@ -109,6 +109,54 @@ export function PlatformPieChart({ suppliers }: Props) {
   )
 }
 
+export function VerifiedDonut({ suppliers }: Props) {
+  const verified = suppliers.filter(s => s.verified).length
+  const unverified = suppliers.length - verified
+  const data = [
+    { name: 'Verified', value: verified },
+    { name: 'Unverified', value: unverified },
+  ].filter(d => d.value > 0)
+  const total = suppliers.length
+  const COLORS = { Verified: '#15803d', Unverified: '#94a3b8' }
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <PieChart>
+        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={3}>
+          {data.map((entry, i) => (
+            <Cell key={i} fill={COLORS[entry.name as keyof typeof COLORS] ?? '#888'} />
+          ))}
+        </Pie>
+        <Tooltip
+          contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 12 }}
+          formatter={(v: number, name: string) => [`${v} (${((v/total)*100).toFixed(0)}%)`, name]}
+        />
+        <Legend iconType="circle" iconSize={8} formatter={(value) => <span style={{ fontSize: 12, color: '#64748b' }}>{value}</span>} />
+      </PieChart>
+    </ResponsiveContainer>
+  )
+}
+
+export function DeliveryBarChart({ suppliers }: Props) {
+  const buckets: Record<string, number> = { '1-7d': 0, '8-14d': 0, '15-21d': 0, '22d+': 0 }
+  suppliers.forEach(s => {
+    if (s.delivery_days <= 7) buckets['1-7d']++
+    else if (s.delivery_days <= 14) buckets['8-14d']++
+    else if (s.delivery_days <= 21) buckets['15-21d']++
+    else buckets['22d+']++
+  })
+  const data = Object.entries(buckets).map(([range, count]) => ({ range, count }))
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+        <XAxis dataKey="range" tick={tickStyle} />
+        <YAxis allowDecimals={false} tick={tickStyle} />
+        <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 12 }} />
+        <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={48} fill="#0f172a" />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
 export function RiskBarChart({ suppliers }: Props) {
   const counts: Record<string, number> = { 'Low Risk': 0, 'Medium Risk': 0, 'High Risk': 0 }
   suppliers.forEach(s => { counts[s.risk_level] = (counts[s.risk_level] ?? 0) + 1 })

@@ -125,10 +125,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-white/5">
+        <div className="px-5 py-4 border-t border-white/5 flex items-center justify-between">
           <p className="text-[11px] text-slate-500 leading-relaxed italic">
             Innovate. Elevate. Dominate.
           </p>
+          <kbd className="text-[10px] font-mono font-semibold text-slate-600 bg-white/8 px-1.5 py-0.5 rounded border border-white/10" title="Keyboard shortcuts">?</kbd>
         </div>
       </aside>
     </>
