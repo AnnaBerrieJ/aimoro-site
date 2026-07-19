@@ -21,3 +21,7 @@ venv/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Next.js
+frontend-next/.next/
+frontend-next/node_modules/
