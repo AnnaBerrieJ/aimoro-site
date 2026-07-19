@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import plotly.express as px
 from dotenv import load_dotenv
+from PIL import Image
 import base64
 import os
 
@@ -36,7 +37,7 @@ px.defaults.template = "simple_white"
 
 st.set_page_config(
     page_title="Aimoro Smart Sourcing",
-    page_icon=LOGO_PATH,
+    page_icon=Image.open(LOGO_PATH),
     layout="wide"
 )
 
