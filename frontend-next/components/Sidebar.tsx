@@ -78,13 +78,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       ].join(' ')}>
 
         {/* Logo */}
-        <Link href="/" onClick={onClose} className="flex items-center gap-3 px-5 py-5 border-b border-white/5 hover:bg-white/5 transition-colors">
-          <div className="w-9 h-9 rounded-xl bg-[#c40000] flex items-center justify-center flex-shrink-0 shadow-[0_0_16px_rgba(196,0,0,0.5)]">
-            <Image src="/favicon.png" alt="Aimoro" width={26} height={26} />
-          </div>
-          <div>
-            <p className="text-white font-extrabold text-sm leading-tight">Aimoro</p>
-            <p className="text-slate-400 text-xs font-medium">Smart Sourcing</p>
+        <Link href="/" onClick={onClose} className="relative overflow-hidden block border-b border-white/5 hover:opacity-90 transition-opacity">
+          <div
+            className="absolute inset-0"
+            style={{ backgroundImage: 'url(/favicon.png)', backgroundSize: '110px', backgroundPosition: 'right -10px center', backgroundRepeat: 'no-repeat', opacity: 0.12 }}
+          />
+          <div className="relative z-10 flex items-center gap-3 px-5 py-5">
+            <Image src="/favicon.png" alt="Aimoro" width={38} height={38} className="object-contain" />
+            <div>
+              <p className="text-white font-extrabold text-sm leading-tight">Aimoro</p>
+              <p className="text-slate-400 text-xs font-medium">Smart Sourcing</p>
+            </div>
           </div>
         </Link>
 
