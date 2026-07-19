@@ -2,34 +2,57 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { MetricCard } from '@/components/MetricCard'
 import { getCatalogSnapshot, getSavedSuppliers } from '@/lib/api'
 import type { Supplier, SavedSupplier } from '@/lib/types'
 
 const STEPS = [
   {
-    n: '1',
+    n: '01',
     title: 'Search & Score',
     copy: "Enter a product, country, and price target. Aimoro's ML model ranks every match by price, rating, delivery speed, and verification.",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    ),
   },
   {
-    n: '2',
+    n: '02',
     title: 'Compare & Save',
     copy: 'Review suppliers side by side with risk levels and plain-language recommendations, then shortlist the strongest candidates.',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      </svg>
+    ),
   },
   {
-    n: '3',
+    n: '03',
     title: 'Negotiate with AI',
     copy: 'Aimoro AI drafts a professional negotiation message using your target price and terms — you review, edit, and send it yourself.',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+    ),
   },
 ]
 
 const QUICK_LINKS = [
-  { label: 'Find Suppliers', href: '/find-suppliers', caption: 'Run a new sourcing search' },
-  { label: 'Saved Suppliers', href: '/saved-suppliers', caption: 'Your shortlist' },
-  { label: 'Analytics', href: '/analytics', caption: 'Review saved-supplier trends' },
-  { label: 'Negotiate', href: '/negotiate', caption: 'Draft an AI negotiation message' },
+  { label: 'Find Suppliers', href: '/find-suppliers', caption: 'Search & rank suppliers', color: 'from-[#c40000] to-[#950000]' },
+  { label: 'Saved Suppliers', href: '/saved-suppliers', caption: 'Your shortlist', color: 'from-slate-700 to-slate-900' },
+  { label: 'Analytics', href: '/analytics', caption: 'Trends & charts', color: 'from-slate-700 to-slate-900' },
+  { label: 'Negotiate', href: '/negotiate', caption: 'AI-drafted messages', color: 'from-slate-700 to-slate-900' },
 ]
+
+function StatPill({ value, label }: { value: string | number; label: string }) {
+  return (
+    <div className="text-center">
+      <p className="text-3xl font-extrabold text-white">{value}</p>
+      <p className="text-slate-400 text-xs font-medium mt-0.5">{label}</p>
+    </div>
+  )
+}
 
 export default function DashboardPage() {
   const [catalog, setCatalog] = useState<Supplier[]>([])
@@ -51,62 +74,83 @@ export default function DashboardPage() {
   const verified = catalog.filter(s => s.verified).length
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div>
       {/* Hero */}
-      <div className="bg-gradient-to-br from-white to-[#fff5f5] border border-[#f1d0d0] rounded-[22px] p-8 shadow-[0_14px_34px_rgba(17,24,39,0.06)]">
-        <span className="inline-block bg-[#fff1f1] text-[#c40000] text-xs font-extrabold uppercase tracking-widest px-4 py-1.5 rounded-full mb-4">
+      <div className="bg-gradient-to-br from-[#0f172a] via-[#1c0a0a] to-[#7f0000] px-8 py-14">
+        <span className="inline-block bg-white/10 text-white/80 text-[11px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-5 border border-white/10">
           AI-Powered Sourcing Intelligence
         </span>
-        <h1 className="text-3xl font-extrabold text-[#111827] tracking-tight mb-3">
-          Source smarter from Alibaba &amp; AliExpress
+        <h1 className="text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight mb-4">
+          Source smarter from<br />
+          <span className="text-[#ff4444]">Alibaba</span> & <span className="text-[#ff4444]">AliExpress</span>
         </h1>
-        <p className="text-base text-gray-500 leading-relaxed max-w-2xl">
+        <p className="text-slate-300 text-base leading-relaxed max-w-xl mb-8">
           Aimoro searches, scores, and risk-checks suppliers across both platforms in seconds,
-          then helps you negotiate better terms with an AI-drafted message. Compare offers side
-          by side, save the ones worth pursuing, and move from research to outreach without
-          leaving the app.
+          then helps you negotiate better terms with an AI-drafted message.
         </p>
+        <Link
+          href="/find-suppliers"
+          className="inline-flex items-center gap-2 bg-[#c40000] hover:bg-[#a30000] text-white font-bold px-6 py-3 rounded-xl shadow-[0_8px_24px_rgba(196,0,0,0.4)] hover:shadow-[0_12px_32px_rgba(196,0,0,0.5)] transition-all hover:-translate-y-0.5"
+        >
+          Start Sourcing
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </Link>
+
+        {/* Stats strip */}
+        <div className="flex items-center gap-10 mt-10 pt-8 border-t border-white/10">
+          <StatPill value={loading ? '…' : catalog.length || '—'} label="Suppliers" />
+          <div className="w-px h-8 bg-white/10" />
+          <StatPill value={loading ? '…' : verified || '—'} label="Verified" />
+          <div className="w-px h-8 bg-white/10" />
+          <StatPill value={loading ? '…' : platforms || '—'} label="Platforms" />
+          <div className="w-px h-8 bg-white/10" />
+          <StatPill value={loading ? '…' : saved.length} label="Saved by You" />
+        </div>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard label="Suppliers in Catalog" value={loading ? '…' : catalog.length || '—'} />
-        <MetricCard label="Verified Suppliers" value={loading ? '…' : verified || '—'} />
-        <MetricCard label="Platforms Covered" value={loading ? '…' : platforms || '—'} />
-        <MetricCard label="Saved by You" value={loading ? '…' : saved.length} />
-      </div>
+      {/* Content */}
+      <div className="px-8 py-10 max-w-5xl space-y-10">
 
-      {/* How it works */}
-      <div>
-        <h2 className="text-xl font-extrabold text-[#111827] mb-4">How Aimoro Works</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {STEPS.map(({ n, title, copy }) => (
-            <div key={n} className="bg-white border border-[#e5e7eb] rounded-[18px] p-5 shadow-[0_10px_24px_rgba(17,24,39,0.04)]">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#c40000] to-[#950000] text-white text-sm font-extrabold flex items-center justify-center mb-3">
-                {n}
+        {/* How it works */}
+        <div>
+          <p className="text-xs font-bold text-[#c40000] uppercase tracking-widest mb-2">How it works</p>
+          <h2 className="text-2xl font-extrabold text-[#0f172a] mb-6">Three steps to your best supplier</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {STEPS.map(({ n, title, copy, icon }) => (
+              <div key={n} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-[#fff1f1] text-[#c40000] flex items-center justify-center">
+                    {icon}
+                  </div>
+                  <span className="text-3xl font-extrabold text-slate-100">{n}</span>
+                </div>
+                <p className="font-bold text-[#0f172a] mb-2">{title}</p>
+                <p className="text-sm text-slate-500 leading-relaxed">{copy}</p>
               </div>
-              <p className="font-bold text-[#111827] mb-1">{title}</p>
-              <p className="text-sm text-gray-500 leading-relaxed">{copy}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Quick links */}
-      <div>
-        <h2 className="text-xl font-extrabold text-[#111827] mb-4">Jump Back In</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {QUICK_LINKS.map(({ label, href, caption }) => (
-            <Link
-              key={href}
-              href={href}
-              className="block bg-white border border-[#e5e7eb] rounded-[18px] p-4 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all group"
-            >
-              <p className="text-xs text-gray-400 mb-1">{caption}</p>
-              <p className="font-bold text-[#111827] group-hover:text-[#c40000] transition-colors">{label} →</p>
-            </Link>
-          ))}
+        {/* Quick links */}
+        <div>
+          <p className="text-xs font-bold text-[#c40000] uppercase tracking-widest mb-2">Quick access</p>
+          <h2 className="text-2xl font-extrabold text-[#0f172a] mb-6">Jump back in</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {QUICK_LINKS.map(({ label, href, caption, color }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`block bg-gradient-to-br ${color} text-white rounded-2xl p-5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all`}
+              >
+                <p className="text-xs text-white/60 mb-1">{caption}</p>
+                <p className="font-bold text-sm">{label} →</p>
+              </Link>
+            ))}
+          </div>
         </div>
+
       </div>
     </div>
   )

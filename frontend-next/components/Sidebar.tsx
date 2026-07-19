@@ -5,12 +5,54 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/' },
-  { label: 'Find Suppliers', href: '/find-suppliers' },
-  { label: 'Saved Suppliers', href: '/saved-suppliers' },
-  { label: 'Analytics', href: '/analytics' },
-  { label: 'Negotiate', href: '/negotiate' },
-  { label: 'AI Assistant', href: '/ai-assistant' },
+  {
+    label: 'Dashboard', href: '/',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Find Suppliers', href: '/find-suppliers',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Saved Suppliers', href: '/saved-suppliers',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Analytics', href: '/analytics',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Negotiate', href: '/negotiate',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+    ),
+  },
+  {
+    label: 'AI Assistant', href: '/ai-assistant',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+    ),
+  },
 ]
 
 interface SidebarProps {
@@ -23,48 +65,33 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile overlay */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={onClose} />
       )}
 
-      {/* Sidebar panel */}
-      <aside
-        className={[
-          'fixed top-0 left-0 h-full w-60 z-30 flex flex-col',
-          'bg-gradient-to-b from-white to-[#fff7f7] border-r border-[#f1d0d0]',
-          'transition-transform duration-200 ease-in-out',
-          isOpen ? 'translate-x-0' : '-translate-x-full',
-          'lg:translate-x-0 lg:static lg:z-auto',
-        ].join(' ')}
-      >
+      <aside className={[
+        'fixed top-0 left-0 h-full w-64 z-30 flex flex-col',
+        'bg-[#0f172a] border-r border-white/5',
+        'transition-transform duration-200 ease-in-out',
+        isOpen ? 'translate-x-0' : '-translate-x-full',
+        'lg:translate-x-0 lg:static lg:z-auto',
+      ].join(' ')}>
+
         {/* Logo */}
-        <Link
-          href="/"
-          onClick={onClose}
-          className="flex items-center gap-3 p-4 border-b border-[#f1d0d0] hover:bg-[#fff1f1] transition-colors"
-        >
-          <Image
-            src="/favicon.png"
-            alt="Aimoro"
-            width={36}
-            height={36}
-            className="rounded-lg flex-shrink-0"
-          />
-          <span className="font-extrabold text-[#111827] text-sm leading-tight">
-            Aimoro Smart Sourcing
-          </span>
+        <Link href="/" onClick={onClose} className="flex items-center gap-3 px-5 py-5 border-b border-white/5 hover:bg-white/5 transition-colors">
+          <div className="w-9 h-9 rounded-xl bg-[#c40000] flex items-center justify-center flex-shrink-0 shadow-[0_0_16px_rgba(196,0,0,0.5)]">
+            <Image src="/favicon.png" alt="Aimoro" width={26} height={26} />
+          </div>
+          <div>
+            <p className="text-white font-extrabold text-sm leading-tight">Aimoro</p>
+            <p className="text-slate-400 text-xs font-medium">Smart Sourcing</p>
+          </div>
         </Link>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest px-3 pt-2 pb-1">
-            Navigation
-          </p>
-          {NAV_ITEMS.map(({ label, href }) => {
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mb-3">Menu</p>
+          {NAV_ITEMS.map(({ label, href, icon }) => {
             const active = pathname === href
             return (
               <Link
@@ -72,12 +99,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 href={href}
                 onClick={onClose}
                 className={[
-                  'flex items-center px-3 py-2.5 rounded-xl text-sm font-semibold transition-all',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all',
                   active
-                    ? 'bg-gradient-to-r from-[#c40000] to-[#950000] text-white shadow-[0_8px_20px_rgba(196,0,0,0.28)]'
-                    : 'text-[#374151] hover:bg-[#fff1f1] hover:text-[#c40000]',
+                    ? 'bg-[#c40000] text-white shadow-[0_4px_14px_rgba(196,0,0,0.4)]'
+                    : 'text-slate-400 hover:text-white hover:bg-white/8',
                 ].join(' ')}
               >
+                <span className={active ? 'text-white' : 'text-slate-500'}>{icon}</span>
                 {label}
               </Link>
             )
@@ -85,9 +113,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[#f1d0d0]">
-          <p className="text-xs font-semibold text-gray-500">Aimoro</p>
-          <p className="text-xs text-gray-400">Innovate. Elevate. Dominate.</p>
+        <div className="px-5 py-4 border-t border-white/5">
+          <p className="text-[11px] text-slate-500 leading-relaxed italic">
+            Innovate. Elevate. Dominate.
+          </p>
         </div>
       </aside>
     </>

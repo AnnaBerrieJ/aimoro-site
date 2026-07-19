@@ -24,13 +24,16 @@ export default function AnalyticsPage() {
   const platforms = new Set(suppliers.map(s => s.platform)).size
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-extrabold text-[#111827]">Analytics</h1>
+    <div className="p-8 max-w-5xl mx-auto space-y-8">
+      <div>
+        <p className="text-xs font-bold text-[#c40000] uppercase tracking-widest mb-1">Insights</p>
+        <h1 className="text-2xl font-extrabold text-[#0f172a]">Analytics</h1>
+      </div>
 
-      {loading && <p className="text-gray-400 text-sm">Loading…</p>}
+      {loading && <p className="text-slate-400 text-sm">Loading…</p>}
 
       {!loading && suppliers.length === 0 && (
-        <div className="text-center py-16 text-gray-400 text-sm font-medium">
+        <div className="text-center py-20 text-slate-400 text-sm">
           Save suppliers first to see analytics here.
         </div>
       )}
@@ -44,23 +47,24 @@ export default function AnalyticsPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-[18px] border border-[#e5e7eb] p-5 shadow-card">
-              <h3 className="font-bold text-[#111827] mb-4">Saved Suppliers by Platform</h3>
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+              <h3 className="font-bold text-[#0f172a] mb-1">Platform Distribution</h3>
+              <p className="text-xs text-slate-400 mb-4">Saved suppliers by platform</p>
               <PlatformPieChart suppliers={suppliers} />
             </div>
-            <div className="bg-white rounded-[18px] border border-[#e5e7eb] p-5 shadow-card">
-              <h3 className="font-bold text-[#111827] mb-4">Saved Supplier Prices</h3>
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+              <h3 className="font-bold text-[#0f172a] mb-1">Price Comparison</h3>
+              <p className="text-xs text-slate-400 mb-4">Unit price by supplier</p>
               <PriceBarChart suppliers={suppliers} />
             </div>
           </div>
 
-          {/* Data table */}
-          <div className="bg-white rounded-[18px] border border-[#e5e7eb] overflow-x-auto shadow-card">
+          <div className="bg-white rounded-2xl border border-slate-100 overflow-x-auto shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-slate-100">
                   {['Supplier', 'Platform', 'Country', 'Price', 'Rating', 'Score'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th key={h} className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wide">
                       {h}
                     </th>
                   ))}
@@ -68,13 +72,15 @@ export default function AnalyticsPage() {
               </thead>
               <tbody>
                 {suppliers.map(s => (
-                  <tr key={s.saved_id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-semibold text-[#111827]">{s.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{s.platform}</td>
-                    <td className="px-4 py-3 text-gray-600">{s.country}</td>
-                    <td className="px-4 py-3 font-semibold">${s.unit_price}</td>
-                    <td className="px-4 py-3 text-gray-600">{s.rating}</td>
-                    <td className="px-4 py-3 font-bold text-[#c40000]">{s.aimoro_score}%</td>
+                  <tr key={s.saved_id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                    <td className="px-5 py-3.5 font-semibold text-[#0f172a]">{s.name}</td>
+                    <td className="px-5 py-3.5 text-slate-500">{s.platform}</td>
+                    <td className="px-5 py-3.5 text-slate-500">{s.country}</td>
+                    <td className="px-5 py-3.5 font-semibold">${s.unit_price}</td>
+                    <td className="px-5 py-3.5 text-slate-500">{s.rating}</td>
+                    <td className="px-5 py-3.5 font-bold text-[#c40000]">
+                      {s.aimoro_score != null ? `${s.aimoro_score}%` : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

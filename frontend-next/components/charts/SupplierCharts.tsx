@@ -8,7 +8,7 @@ import type { Supplier } from '@/lib/types'
 
 const PLATFORM_COLORS: Record<string, string> = {
   Alibaba: '#c40000',
-  AliExpress: '#111827',
+  AliExpress: '#0f172a',
 }
 
 const RISK_COLORS: Record<string, string> = {
@@ -21,15 +21,24 @@ interface Props {
   suppliers: Supplier[]
 }
 
+const tickStyle = { fontSize: 11, fill: '#94a3b8' }
+
 export function PriceBarChart({ suppliers }: Props) {
-  const data = suppliers.map(s => ({ name: s.name.split(' ')[0], price: s.unit_price, platform: s.platform }))
+  const data = suppliers.map(s => ({
+    name: s.name.split(' ').slice(0, 2).join(' '),
+    price: s.unit_price,
+    platform: s.platform,
+  }))
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 60 }}>
-        <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} />
-        <YAxis tick={{ fontSize: 11 }} />
-        <Tooltip formatter={(v: number) => [`$${v}`, 'Price']} />
-        <Bar dataKey="price" radius={[6, 6, 0, 0]}>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 80 }}>
+        <XAxis dataKey="name" tick={tickStyle} angle={-40} textAnchor="end" interval={0} />
+        <YAxis tick={tickStyle} />
+        <Tooltip
+          contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 12 }}
+          formatter={(v: number) => [`$${v}`, 'Price']}
+        />
+        <Bar dataKey="price" radius={[6, 6, 0, 0]} maxBarSize={40}>
           {data.map((entry, i) => (
             <Cell key={i} fill={PLATFORM_COLORS[entry.platform] ?? '#c40000'} />
           ))}
@@ -40,14 +49,21 @@ export function PriceBarChart({ suppliers }: Props) {
 }
 
 export function ScoreBarChart({ suppliers }: Props) {
-  const data = suppliers.map(s => ({ name: s.name.split(' ')[0], score: s.aimoro_score, risk: s.risk_level }))
+  const data = suppliers.map(s => ({
+    name: s.name.split(' ').slice(0, 2).join(' '),
+    score: s.aimoro_score,
+    risk: s.risk_level,
+  }))
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 60 }}>
-        <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} />
-        <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-        <Tooltip formatter={(v: number) => [`${v}%`, 'Score']} />
-        <Bar dataKey="score" radius={[6, 6, 0, 0]}>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 80 }}>
+        <XAxis dataKey="name" tick={tickStyle} angle={-40} textAnchor="end" interval={0} />
+        <YAxis domain={[0, 100]} tick={tickStyle} />
+        <Tooltip
+          contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 12 }}
+          formatter={(v: number) => [`${v}%`, 'Score']}
+        />
+        <Bar dataKey="score" radius={[6, 6, 0, 0]} maxBarSize={40}>
           {data.map((entry, i) => (
             <Cell key={i} fill={RISK_COLORS[entry.risk] ?? '#c40000'} />
           ))}
@@ -63,14 +79,25 @@ export function PlatformPieChart({ suppliers }: Props) {
   const data = Object.entries(counts).map(([name, value]) => ({ name, value }))
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <PieChart>
-        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+      <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+        <Pie
+          data={data}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="45%"
+          outerRadius={90}
+          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+          labelLine={false}
+        >
           {data.map((entry, i) => (
             <Cell key={i} fill={PLATFORM_COLORS[entry.name] ?? '#888'} />
           ))}
         </Pie>
         <Legend />
-        <Tooltip />
+        <Tooltip
+          contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 12 }}
+        />
       </PieChart>
     </ResponsiveContainer>
   )
@@ -83,10 +110,12 @@ export function RiskBarChart({ suppliers }: Props) {
   return (
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-        <XAxis dataKey="risk" tick={{ fontSize: 12 }} />
-        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-        <Tooltip />
-        <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+        <XAxis dataKey="risk" tick={tickStyle} />
+        <YAxis allowDecimals={false} tick={tickStyle} />
+        <Tooltip
+          contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 12 }}
+        />
+        <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={60}>
           {data.map((entry, i) => (
             <Cell key={i} fill={RISK_COLORS[entry.risk] ?? '#888'} />
           ))}
