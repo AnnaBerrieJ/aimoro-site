@@ -90,7 +90,7 @@ export default function DashboardPage() {
         </p>
         <Link
           href="/find-suppliers"
-          className="inline-flex items-center gap-2 bg-[#c40000] hover:bg-[#a30000] text-white font-bold px-6 py-3 rounded-xl shadow-[0_8px_24px_rgba(196,0,0,0.4)] hover:shadow-[0_12px_32px_rgba(196,0,0,0.5)] transition-all hover:-translate-y-0.5"
+          className="inline-flex items-center gap-2 bg-white hover:bg-slate-100 text-[#c40000] font-bold px-6 py-3 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.25)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-0.5"
         >
           Start Sourcing
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,7 +111,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Content */}
-      <div className="px-8 py-10 max-w-5xl space-y-10">
+      <div className="px-8 py-10 max-w-5xl mx-auto space-y-10">
 
         {/* How it works */}
         <div>
@@ -119,15 +119,15 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-extrabold text-[#0f172a] mb-6">Three steps to your best supplier</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {STEPS.map(({ n, title, copy, icon }) => (
-              <div key={n} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#fff1f1] text-[#c40000] flex items-center justify-center">
+              <div key={n} className="relative bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                <span className="absolute top-2 right-4 text-7xl font-extrabold text-slate-100 select-none leading-none">{n}</span>
+                <div className="relative z-10">
+                  <div className="w-10 h-10 rounded-xl bg-[#fff1f1] text-[#c40000] flex items-center justify-center mb-4">
                     {icon}
                   </div>
-                  <span className="text-3xl font-extrabold text-slate-100">{n}</span>
+                  <p className="font-bold text-[#0f172a] mb-2">{title}</p>
+                  <p className="text-sm text-slate-500 leading-relaxed">{copy}</p>
                 </div>
-                <p className="font-bold text-[#0f172a] mb-2">{title}</p>
-                <p className="text-sm text-slate-500 leading-relaxed">{copy}</p>
               </div>
             ))}
           </div>

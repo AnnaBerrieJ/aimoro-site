@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { Sidebar } from './Sidebar'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
+          <Image src="/favicon.png" alt="Aimoro" width={28} height={28} className="object-contain" />
           <span className="font-extrabold text-white text-sm">Aimoro Smart Sourcing</span>
         </header>
 
