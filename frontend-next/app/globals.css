@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: radial-gradient(circle at 14% 0%, #fff3f3 0%, #f8fafc 42%);
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .red-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #c40000, #ff5a5a 55%, #c40000);
+  }
+}
