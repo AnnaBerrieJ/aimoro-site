@@ -1,14 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { searchSuppliers, saveSupplier } from '@/lib/api'
 import type { Supplier } from '@/lib/types'
 import { MetricCard } from '@/components/MetricCard'
 import { SupplierCard } from '@/components/SupplierCard'
 import { RiskBadge } from '@/components/RiskBadge'
 import { PriceBarChart, ScoreBarChart, PlatformPieChart, RiskBarChart } from '@/components/charts/SupplierCharts'
+import { CompareModal } from '@/components/CompareModal'
 
 type Tab = 'results' | 'table' | 'analytics'
+
+const HISTORY_KEY = 'aimoro_search_history'
+const MAX_HISTORY = 5
+
+interface SearchEntry { product: string; country: string; maxPrice: number }
+
+function loadHistory(): SearchEntry[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]') } catch { return [] }
+}
+
+function saveHistory(entry: SearchEntry) {
+  const prev = loadHistory().filter(h => h.product !== entry.product || h.country !== entry.country)
+  localStorage.setItem(HISTORY_KEY, JSON.stringify([entry, ...prev].slice(0, MAX_HISTORY)))
+}
 
 export default function FindSuppliersPage() {
   const [product, setProduct] = useState('Wireless Headphones')
@@ -21,20 +37,45 @@ export default function FindSuppliersPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
   const [tab, setTab] = useState<Tab>('results')
+  const [history, setHistory] = useState<SearchEntry[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [compareOpen, setCompareOpen] = useState(false)
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
+  useEffect(() => { setHistory(loadHistory()) }, [])
+
+  async function runSearch(p: string, c: string, mp: number, v: boolean) {
     setLoading(true)
     setError('')
+    setSelected(new Set())
     try {
-      const results = await searchSuppliers({ product, country, max_price: maxPrice, verified: verifiedOnly })
+      const results = await searchSuppliers({ product: p, country: c, max_price: mp, verified: v })
       setSuppliers(results)
       setTab('results')
+      const entry = { product: p, country: c, maxPrice: mp }
+      saveHistory(entry)
+      setHistory(loadHistory())
     } catch {
       setError('Could not reach the backend. Make sure it is running.')
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    await runSearch(product, country, maxPrice, verifiedOnly)
+  }
+
+  function applyHistory(entry: SearchEntry) {
+    setProduct(entry.product)
+    setCountry(entry.country)
+    setMaxPrice(entry.maxPrice)
+    runSearch(entry.product, entry.country, entry.maxPrice, verifiedOnly)
+  }
+
+  function clearHistory() {
+    localStorage.removeItem(HISTORY_KEY)
+    setHistory([])
   }
 
   async function handleSave(supplier: Supplier) {
@@ -50,6 +91,17 @@ export default function FindSuppliersPage() {
       setSavingId(null)
     }
   }
+
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else if (next.size < 3) next.add(id)
+      return next
+    })
+  }
+
+  const selectedSuppliers = suppliers.filter(s => selected.has(s.id))
 
   const avgPrice = suppliers.length
     ? (suppliers.reduce((s, x) => s + x.unit_price, 0) / suppliers.length).toFixed(2)
@@ -114,6 +166,32 @@ export default function FindSuppliersPage() {
             </>
           )}
         </button>
+
+        {/* Search history */}
+        {history.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Recent:</span>
+              {history.map((h, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => applyHistory(h)}
+                  className="text-xs font-medium text-slate-600 bg-slate-50 hover:bg-[#fff1f1] hover:text-[#c40000] border border-slate-200 hover:border-[#c40000]/30 px-3 py-1 rounded-lg transition-all"
+                >
+                  {h.product} · {h.country} · ${h.maxPrice}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={clearHistory}
+                className="text-[11px] text-slate-300 hover:text-slate-500 ml-auto transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
       </form>
 
       {error && (
@@ -125,7 +203,6 @@ export default function FindSuppliersPage() {
         </div>
       )}
 
-      {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 right-6 bg-[#0f172a] text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-lg z-50 flex items-center gap-2">
           <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,26 +222,58 @@ export default function FindSuppliersPage() {
             <MetricCard label="Best Score" value={`${suppliers[0].aimoro_score}%`} />
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-            {(['results', 'table', 'analytics'] as Tab[]).map(t => (
+          {/* Tabs + compare bar */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+              {(['results', 'table', 'analytics'] as Tab[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={[
+                    'px-4 py-2 text-sm font-semibold rounded-lg transition-all capitalize',
+                    tab === t ? 'bg-white text-[#0f172a] shadow-sm' : 'text-slate-500 hover:text-[#0f172a]',
+                  ].join(' ')}
+                >
+                  {t === 'results' ? 'Results' : t === 'table' ? 'Table' : 'Analytics'}
+                </button>
+              ))}
+            </div>
+            {selected.size >= 2 && (
               <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={[
-                  'px-4 py-2 text-sm font-semibold rounded-lg transition-all capitalize',
-                  tab === t ? 'bg-white text-[#0f172a] shadow-sm' : 'text-slate-500 hover:text-[#0f172a]',
-                ].join(' ')}
+                onClick={() => setCompareOpen(true)}
+                className="flex items-center gap-2 ml-auto bg-[#0f172a] hover:bg-[#1e293b] text-white text-sm font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
               >
-                {t === 'results' ? 'Results' : t === 'table' ? 'Table' : 'Analytics'}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
+                </svg>
+                Compare {selected.size}
               </button>
-            ))}
+            )}
+            {selected.size === 1 && (
+              <p className="ml-auto text-xs text-slate-400">Select 1 more to compare</p>
+            )}
+            {selected.size === 0 && tab === 'results' && (
+              <p className="ml-auto text-xs text-slate-400">Select up to 3 to compare</p>
+            )}
           </div>
 
           {tab === 'results' && (
-            <div>
+            <div className="space-y-3">
               {suppliers.map((s, i) => (
-                <SupplierCard key={s.id} supplier={s} isFirst={i === 0} onSave={handleSave} saving={savingId === s.id} />
+                <div key={s.id} className="relative">
+                  <label className="absolute top-4 left-4 z-10 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(s.id)}
+                      onChange={() => toggleSelect(s.id)}
+                      disabled={!selected.has(s.id) && selected.size >= 3}
+                      className="w-4 h-4 accent-[#c40000] cursor-pointer"
+                    />
+                  </label>
+                  <div className={`pl-8 transition-all rounded-2xl ${selected.has(s.id) ? 'ring-2 ring-[#c40000]/40' : ''}`}>
+                    <SupplierCard supplier={s} isFirst={i === 0} onSave={handleSave} saving={savingId === s.id} />
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -228,6 +337,10 @@ export default function FindSuppliersPage() {
         <div className="text-center py-20 text-slate-400 text-sm">
           Enter a product and hit Search to find suppliers.
         </div>
+      )}
+
+      {compareOpen && (
+        <CompareModal suppliers={selectedSuppliers} onClose={() => setCompareOpen(false)} />
       )}
     </div>
   )

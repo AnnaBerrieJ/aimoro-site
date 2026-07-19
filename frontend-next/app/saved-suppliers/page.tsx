@@ -4,6 +4,18 @@ import { useEffect, useState, useMemo } from 'react'
 import { getSavedSuppliers, deleteSavedSupplier } from '@/lib/api'
 import type { SavedSupplier } from '@/lib/types'
 
+const NOTES_KEY = 'aimoro_supplier_notes'
+function loadNotes(): Record<number, string> {
+  if (typeof window === 'undefined') return {}
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) ?? '{}') } catch { return {} }
+}
+function saveNote(id: number, note: string) {
+  const notes = loadNotes()
+  if (note.trim()) notes[id] = note.trim()
+  else delete notes[id]
+  localStorage.setItem(NOTES_KEY, JSON.stringify(notes))
+}
+
 type SortKey = 'name' | 'unit_price' | 'rating' | 'delivery_days'
 type SortDir = 'asc' | 'desc'
 
@@ -29,6 +41,9 @@ export default function SavedSuppliersPage() {
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [platformFilter, setPlatformFilter] = useState<string>('All')
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  const [editingNote, setEditingNote] = useState<number | null>(null)
+  const [draftNote, setDraftNote] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -43,7 +58,7 @@ export default function SavedSuppliersPage() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); setNotes(loadNotes()) }, [])
 
   async function handleDelete(savedId: number, name: string) {
     if (!confirm(`Remove ${name} from saved suppliers?`)) return
@@ -61,6 +76,17 @@ export default function SavedSuppliersPage() {
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
+  }
+
+  function startEditNote(id: number) {
+    setEditingNote(id)
+    setDraftNote(notes[id] ?? '')
+  }
+
+  function commitNote(id: number) {
+    saveNote(id, draftNote)
+    setNotes(loadNotes())
+    setEditingNote(null)
   }
 
   const platforms = useMemo(() => ['All', ...Array.from(new Set(suppliers.map(s => s.platform)))], [suppliers])
@@ -183,6 +209,39 @@ export default function SavedSuppliersPage() {
                       {deletingId === s.saved_id ? 'Removing…' : 'Remove'}
                     </button>
                   </div>
+                </div>
+
+                {/* Notes */}
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  {editingNote === s.saved_id ? (
+                    <div className="flex items-end gap-2">
+                      <textarea
+                        autoFocus
+                        rows={2}
+                        value={draftNote}
+                        onChange={e => setDraftNote(e.target.value)}
+                        placeholder="Add a private note…"
+                        className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#c40000]/20 resize-none"
+                      />
+                      <div className="flex flex-col gap-1">
+                        <button onClick={() => commitNote(s.saved_id)} className="text-xs font-bold text-white bg-[#c40000] px-3 py-1.5 rounded-lg hover:bg-[#a30000] transition-colors">Save</button>
+                        <button onClick={() => setEditingNote(null)} className="text-xs font-semibold text-slate-400 hover:text-slate-600 px-3 py-1.5 rounded-lg transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => startEditNote(s.saved_id)}
+                      className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#c40000] transition-colors group"
+                    >
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      {notes[s.saved_id]
+                        ? <span className="text-slate-600 group-hover:text-[#c40000]">{notes[s.saved_id]}</span>
+                        : <span>Add note</span>
+                      }
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
