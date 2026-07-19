@@ -102,7 +102,7 @@ export default function SavedSuppliersPage() {
   async function handleBulkDelete() {
     if (!confirm(`Remove ${selected.size} supplier${selected.size > 1 ? 's' : ''}?`)) return
     setBulkDeleting(true)
-    for (const id of selected) {
+    for (const id of Array.from(selected)) {
       try { await deleteSavedSupplier(id) } catch { /* skip */ }
     }
     setSuppliers(prev => prev.filter(s => !selected.has(s.saved_id)))
