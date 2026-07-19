@@ -36,14 +36,17 @@ export default function SavedSuppliersPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-extrabold text-[#111827]">Saved Suppliers</h1>
+    <div className="p-8 max-w-4xl mx-auto space-y-6">
+      <div>
+        <p className="text-xs font-bold text-[#c40000] uppercase tracking-widest mb-1">Your shortlist</p>
+        <h1 className="text-2xl font-extrabold text-[#0f172a]">Saved Suppliers</h1>
+      </div>
 
-      {loading && <p className="text-gray-400 text-sm">Loading…</p>}
+      {loading && <p className="text-slate-400 text-sm">Loading…</p>}
 
       {!loading && suppliers.length === 0 && (
-        <div className="text-center py-16 text-gray-400 text-sm font-medium">
-          No saved suppliers yet. Go to <strong>Find Suppliers</strong> and hit Save on any result.
+        <div className="text-center py-20 text-slate-400 text-sm">
+          No saved suppliers yet. Go to <strong className="text-[#0f172a]">Find Suppliers</strong> and hit Save on any result.
         </div>
       )}
 

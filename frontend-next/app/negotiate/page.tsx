@@ -56,16 +56,17 @@ export default function NegotiatePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="p-8 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-[#111827]">Negotiate</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-xs font-bold text-[#c40000] uppercase tracking-widest mb-1">AI-Powered</p>
+        <h1 className="text-2xl font-extrabold text-[#0f172a]">Negotiate</h1>
+        <p className="text-sm text-slate-500 mt-1">
           Aimoro AI drafts a negotiation message based on a saved supplier and your target terms.
           Review and edit it, then send it yourself.
         </p>
       </div>
 
-      {loading && <p className="text-gray-400 text-sm">Loading…</p>}
+      {loading && <p className="text-slate-400 text-sm">Loading…</p>}
 
       {!loading && suppliers.length === 0 && (
         <div className="text-center py-16 text-gray-400 text-sm font-medium">

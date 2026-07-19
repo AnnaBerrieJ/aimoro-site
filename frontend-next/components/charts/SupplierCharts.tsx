@@ -77,26 +77,32 @@ export function PlatformPieChart({ suppliers }: Props) {
   const counts: Record<string, number> = {}
   suppliers.forEach(s => { counts[s.platform] = (counts[s.platform] ?? 0) + 1 })
   const data = Object.entries(counts).map(([name, value]) => ({ name, value }))
+  const total = data.reduce((s, d) => s + d.value, 0)
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+    <ResponsiveContainer width="100%" height={260}>
+      <PieChart>
         <Pie
           data={data}
           dataKey="value"
           nameKey="name"
           cx="50%"
-          cy="45%"
-          outerRadius={90}
-          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-          labelLine={false}
+          cy="50%"
+          innerRadius={55}
+          outerRadius={95}
+          paddingAngle={3}
         >
           {data.map((entry, i) => (
             <Cell key={i} fill={PLATFORM_COLORS[entry.name] ?? '#888'} />
           ))}
         </Pie>
-        <Legend />
         <Tooltip
           contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 12 }}
+          formatter={(v: number, name: string) => [`${v} (${((v/total)*100).toFixed(0)}%)`, name]}
+        />
+        <Legend
+          iconType="circle"
+          iconSize={8}
+          formatter={(value) => <span style={{ fontSize: 12, color: '#64748b' }}>{value}</span>}
         />
       </PieChart>
     </ResponsiveContainer>

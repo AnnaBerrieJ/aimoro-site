@@ -15,7 +15,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'Segoe UI', 'sans-serif'],
+        sans: ['"Sora"', 'Segoe UI', 'sans-serif'],
       },
       boxShadow: {
         card: '0 10px 28px rgba(17,24,39,0.05)',
