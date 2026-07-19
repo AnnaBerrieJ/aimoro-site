@@ -5,7 +5,11 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 export async function POST(req: NextRequest) {
   try {
-    const { supplier, targetPrice, orderQty, deliveryDays, notes } = await req.json()
+    const { supplier, targetPrice, orderQty, deliveryDays, notes, templatePrompt } = await req.json()
+
+    const styleInstruction = templatePrompt
+      ? templatePrompt
+      : `Write a polite, professional, and firm message that references the supplier's listing, states the buyer's target terms as a clear ask, gives a reason to agree, and ends with a call to action.`
 
     const completion = await client.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -13,11 +17,7 @@ export async function POST(req: NextRequest) {
         {
           role: 'system',
           content: `You are Aimoro AI, drafting a negotiation email from a buyer to a supplier on Alibaba/AliExpress.
-Write a polite, professional, and firm message that:
-- references the supplier's current listing
-- states the buyer's target price, order quantity, and delivery timeline as a clear ask
-- gives the supplier a reason to agree (order volume, potential for repeat business, etc.)
-- ends with a clear call to action requesting a reply
+${styleInstruction}
 
 Keep it under 200 words. Output only the message text, ready to copy and send, with no commentary before or after it.`,
         },
@@ -32,7 +32,7 @@ Rating: ${supplier.rating}, Verified: ${Boolean(supplier.verified)}
 My target unit price: $${targetPrice}
 My order quantity: ${orderQty}
 My target delivery: ${deliveryDays} days
-Additional notes: ${notes || 'none'}`,
+Additional context: ${notes || 'none'}`,
         },
       ],
     })

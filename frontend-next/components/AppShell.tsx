@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { Sidebar } from './Sidebar'
+import { MobileNav } from './MobileNav'
 import { KeyboardShortcuts } from './KeyboardShortcuts'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -28,10 +29,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="font-extrabold text-white text-sm">Aimoro Smart Sourcing</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           {children}
         </main>
       </div>
+      <MobileNav />
       <KeyboardShortcuts />
     </div>
   )
