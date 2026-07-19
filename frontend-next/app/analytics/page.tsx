@@ -30,7 +30,16 @@ export default function AnalyticsPage() {
         <h1 className="text-2xl font-extrabold text-[#0f172a]">Analytics</h1>
       </div>
 
-      {loading && <p className="text-slate-400 text-sm">Loading…</p>}
+      {loading && (
+        <div className="space-y-6 animate-pulse">
+          <div className="grid grid-cols-3 gap-4">
+            {[1,2,3].map(i => <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 h-20" />)}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[1,2].map(i => <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 h-64" />)}
+          </div>
+        </div>
+      )}
 
       {!loading && suppliers.length === 0 && (
         <div className="text-center py-20 text-slate-400 text-sm">

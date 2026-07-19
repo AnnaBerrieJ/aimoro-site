@@ -100,13 +100,29 @@ export default function DashboardPage() {
 
         {/* Stats strip */}
         <div className="flex items-center gap-10 mt-10 pt-8 border-t border-white/10">
-          <StatPill value={loading ? '…' : catalog.length || '—'} label="Suppliers" />
-          <div className="w-px h-8 bg-white/10" />
-          <StatPill value={loading ? '…' : verified || '—'} label="Verified" />
-          <div className="w-px h-8 bg-white/10" />
-          <StatPill value={loading ? '…' : platforms || '—'} label="Platforms" />
-          <div className="w-px h-8 bg-white/10" />
-          <StatPill value={loading ? '…' : saved.length} label="Saved by You" />
+          {loading ? (
+            <div className="flex items-center gap-10 animate-pulse">
+              {[1,2,3,4].map((i, idx) => (
+                <div key={i} className="flex items-center gap-10">
+                  <div className="text-center">
+                    <div className="h-8 w-10 bg-white/20 rounded mb-1" />
+                    <div className="h-3 w-14 bg-white/10 rounded" />
+                  </div>
+                  {idx < 3 && <div className="w-px h-8 bg-white/10" />}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <StatPill value={catalog.length || '—'} label="Suppliers" />
+              <div className="w-px h-8 bg-white/10" />
+              <StatPill value={verified || '—'} label="Verified" />
+              <div className="w-px h-8 bg-white/10" />
+              <StatPill value={platforms || '—'} label="Platforms" />
+              <div className="w-px h-8 bg-white/10" />
+              <StatPill value={saved.length} label="Saved by You" />
+            </>
+          )}
         </div>
       </div>
 

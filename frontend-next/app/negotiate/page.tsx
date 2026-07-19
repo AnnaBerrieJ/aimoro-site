@@ -15,6 +15,13 @@ export default function NegotiatePage() {
   const [drafting, setDrafting] = useState(false)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(draft)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   useEffect(() => {
     getSavedSuppliers()
@@ -66,7 +73,11 @@ export default function NegotiatePage() {
         </p>
       </div>
 
-      {loading && <p className="text-slate-400 text-sm">Loading…</p>}
+      {loading && (
+        <div className="animate-pulse space-y-4">
+          <div className="bg-white rounded-[18px] border border-slate-100 p-6 h-48" />
+        </div>
+      )}
 
       {!loading && suppliers.length === 0 && (
         <div className="text-center py-16 text-gray-400 text-sm font-medium">
@@ -152,7 +163,33 @@ export default function NegotiatePage() {
 
       {draft && (
         <div className="bg-white rounded-[18px] border border-[#e5e7eb] p-6 shadow-card space-y-3">
-          <h2 className="font-bold text-[#111827]">Drafted Message</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-[#111827]">Drafted Message</h2>
+            <button
+              onClick={handleCopy}
+              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                copied
+                  ? 'bg-green-50 text-green-600 border border-green-200'
+                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:border-[#c40000]/30 hover:text-[#c40000]'
+              }`}
+            >
+              {copied ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy
+                </>
+              )}
+            </button>
+          </div>
           <textarea
             rows={12}
             value={draft}
