@@ -9,6 +9,7 @@ import { RiskBadge } from '@/components/RiskBadge'
 import { PriceBarChart, ScoreBarChart, PlatformPieChart, RiskBarChart } from '@/components/charts/SupplierCharts'
 import { CompareModal } from '@/components/CompareModal'
 import { SupplierDrawer } from '@/components/SupplierDrawer'
+import { markOnboarding } from '@/components/OnboardingChecklist'
 
 type Tab = 'results' | 'table' | 'analytics'
 
@@ -53,6 +54,7 @@ export default function FindSuppliersPage() {
       const results = await searchSuppliers({ product: p, country: c, max_price: mp, verified: v })
       setSuppliers(results)
       setTab('results')
+      markOnboarding('searched')
       const entry = { product: p, country: c, maxPrice: mp }
       saveHistory(entry)
       setHistory(loadHistory())
@@ -84,6 +86,7 @@ export default function FindSuppliersPage() {
     setSavingId(supplier.id)
     try {
       await saveSupplier(supplier.id)
+      markOnboarding('saved')
       setToast(`${supplier.name} saved!`)
       setTimeout(() => setToast(''), 3000)
     } catch {
@@ -339,8 +342,36 @@ export default function FindSuppliersPage() {
       )}
 
       {!loading && suppliers.length === 0 && !error && (
-        <div className="text-center py-20 text-slate-400 text-sm">
-          Enter a product and hit Search to find suppliers.
+        <div className="space-y-6 py-6">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3">Trending products</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { product: 'LED Strip Lights', country: 'China', maxPrice: 20 },
+                { product: 'Wireless Earbuds', country: 'China', maxPrice: 30 },
+                { product: 'Phone Cases', country: 'China', maxPrice: 5 },
+                { product: 'Yoga Mat', country: 'China', maxPrice: 25 },
+                { product: 'Portable Charger', country: 'China', maxPrice: 40 },
+                { product: 'Resistance Bands', country: 'China', maxPrice: 15 },
+                { product: 'Smart Watch', country: 'China', maxPrice: 60 },
+                { product: 'Bamboo Toothbrush', country: 'China', maxPrice: 3 },
+                { product: 'Candle Making Kit', country: 'China', maxPrice: 30 },
+                { product: 'Pet Grooming Glove', country: 'China', maxPrice: 12 },
+                { product: 'Insulated Water Bottle', country: 'China', maxPrice: 20 },
+                { product: 'Magnetic Phone Mount', country: 'China', maxPrice: 10 },
+              ].map(({ product: p, country: c, maxPrice: mp }) => (
+                <button
+                  key={p}
+                  onClick={() => { setProduct(p); setCountry(c); setMaxPrice(mp); runSearch(p, c, mp, verifiedOnly) }}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:border-[#c40000]/40 hover:text-[#c40000] hover:bg-[#fff1f1] px-4 py-2 rounded-xl transition-all shadow-sm"
+                >
+                  {p}
+                  <span className="text-xs text-slate-400">${mp}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

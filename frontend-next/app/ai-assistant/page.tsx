@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { markOnboarding } from '@/components/OnboardingChecklist'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -75,6 +76,7 @@ export default function AIAssistantPage() {
     const newMessages: Message[] = [...messages, { role: 'user', content: q }]
     setMessages(newMessages)
     setLoading(true)
+    markOnboarding('usedAI')
 
     try {
       const res = await fetch('/api/ai-assistant', {

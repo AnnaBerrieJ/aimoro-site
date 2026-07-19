@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { getSavedSuppliers } from '@/lib/api'
 import type { SavedSupplier } from '@/lib/types'
+import { markOnboarding } from '@/components/OnboardingChecklist'
 
 // ── History helpers ───────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ export default function NegotiatePage() {
       if (!res.ok) throw new Error('API error')
       const data = await res.json()
       setDraft(data.message)
+      markOnboarding('negotiated')
       const entry: DraftEntry = {
         supplierName: supplier.name,
         supplierId: supplier.saved_id,

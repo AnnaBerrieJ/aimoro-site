@@ -115,6 +115,48 @@ export function SupplierDrawer({ supplier, onClose, onSave, saving }: Props) {
                 ))}
               </div>
 
+              {/* Score breakdown */}
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Score Breakdown</p>
+                <div className="space-y-2.5">
+                  {[
+                    {
+                      label: 'Price',
+                      value: Math.round(Math.max(0, Math.min(100, 100 - (supplier.unit_price / 5)))),
+                      hint: `$${supplier.unit_price} unit price`,
+                    },
+                    {
+                      label: 'Rating',
+                      value: Math.round((supplier.rating / 5) * 100),
+                      hint: `${supplier.rating} / 5.0`,
+                    },
+                    {
+                      label: 'Delivery',
+                      value: Math.round(Math.max(0, 100 - (supplier.delivery_days * 3))),
+                      hint: `${supplier.delivery_days} days`,
+                    },
+                    {
+                      label: 'Verification',
+                      value: supplier.verified ? 100 : 30,
+                      hint: supplier.verified ? 'Verified' : 'Not verified',
+                    },
+                  ].map(({ label, value, hint }) => (
+                    <div key={label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-slate-600">{label}</span>
+                        <span className="text-xs text-slate-400">{hint}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full">
+                        <div
+                          className="h-1.5 rounded-full bg-gradient-to-r from-[#c40000] to-[#ff5a5a] transition-all"
+                          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Recommendation */}
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                 <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">Aimoro Recommendation</p>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getCatalogSnapshot, getSavedSuppliers } from '@/lib/api'
 import type { Supplier, SavedSupplier } from '@/lib/types'
+import { OnboardingChecklist } from '@/components/OnboardingChecklist'
 
 const STEPS = [
   {
@@ -128,6 +129,9 @@ export default function DashboardPage() {
 
       {/* Content */}
       <div className="px-8 py-10 max-w-5xl mx-auto space-y-10">
+
+        {/* Onboarding */}
+        <OnboardingChecklist />
 
         {/* How it works */}
         <div>
