@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd backend && uvicorn main:app --host 0.0.0.0 --port 8000"],
+      "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd frontend && streamlit run app.py --server.port 8501 --server.headless true"],
+      "port": 8501
+    },
+    {
+      "name": "volterra-ai",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd '/Users/anna-berrie/Downloads/volterra-ev-genAI-assistant-frontend-premium-redesign/frontend' && streamlit run Volterra_AI.py --server.port 8502 --server.headless true"],
+      "port": 8502
+    },
+    {
+      "name": "volterra-backend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd '/Users/anna-berrie/Downloads/volterra-ev-genAI-assistant-frontend-premium-redesign' && USE_MOCK=true python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8010"],
+      "port": 8010
+    },
+    {
+      "name": "volterra-streamlit-app",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd '/Users/anna-berrie/Downloads/volterra-ev-genAI-assistant-frontend-premium-redesign/frontend/app' && BACKEND_API_URL=http://localhost:8010 streamlit run streamlit_app.py --server.port 8503 --server.headless true"],
+      "port": 8503
+    }
+  ]
+}

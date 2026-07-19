@@ -331,11 +331,13 @@ def save_supplier(supplier):
     response = requests.post(f"{API_BASE_URL}/save-supplier/{supplier['id']}")
 
     if response.status_code == 200:
+        get_saved_suppliers.clear()
         st.success(f"{supplier['name']} saved.")
     else:
         st.error("Could not save supplier.")
 
 
+@st.cache_data(ttl=30)
 def get_saved_suppliers():
     try:
         response = requests.get(f"{API_BASE_URL}/saved-suppliers")
@@ -347,6 +349,7 @@ def get_saved_suppliers():
     return []
 
 
+@st.cache_data(ttl=60)
 def get_catalog_snapshot():
     """Fetches the full unfiltered supplier catalog, used only to power
     Dashboard stats (total suppliers, verified count, platforms)."""
@@ -367,6 +370,7 @@ def delete_saved_supplier(saved_id):
     response = requests.delete(f"{API_BASE_URL}/saved-suppliers/{saved_id}")
 
     if response.status_code == 200:
+        get_saved_suppliers.clear()
         st.success("Supplier deleted.")
     else:
         st.error("Could not delete supplier.")
@@ -469,7 +473,11 @@ def render_dashboard(saved_suppliers):
 if "page" not in st.session_state:
     st.session_state.page = "Dashboard"
 
-_logo_b64 = base64.b64encode(open(LOGO_PATH, "rb").read()).decode()
+@st.cache_data
+def _load_logo_b64():
+    return base64.b64encode(open(LOGO_PATH, "rb").read()).decode()
+
+_logo_b64 = _load_logo_b64()
 
 st.markdown(
     f"""
