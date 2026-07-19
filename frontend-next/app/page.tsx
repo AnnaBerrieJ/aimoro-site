@@ -167,6 +167,36 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Recently saved */}
+        {!loading && saved.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs font-bold text-[#c40000] uppercase tracking-widest mb-1">Recent</p>
+                <h2 className="text-xl font-extrabold text-[#0f172a]">Recently Saved</h2>
+              </div>
+              <Link href="/saved-suppliers" className="text-xs font-semibold text-[#c40000] hover:underline">
+                View all →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {saved.slice(0, 4).map(s => (
+                <div key={s.saved_id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-3 hover:shadow-md transition-shadow">
+                  <div className="w-9 h-9 rounded-xl bg-[#fff1f1] flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-[#c40000]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-[#0f172a] text-sm truncate">{s.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{s.platform} · ${s.unit_price} · ★ {s.rating}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
