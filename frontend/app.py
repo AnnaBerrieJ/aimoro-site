@@ -26,6 +26,7 @@ def get_openai_key():
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 SUPPLIERS_URL = f"{API_BASE_URL}/suppliers"
 LOGO_PATH = "assets/AimoroLogo.png"
+FAVICON_PATH = "assets/favicon.png"
 
 # Brand palette, reused across custom HTML badges and chart color maps so
 # the two stay in sync.
@@ -37,7 +38,7 @@ px.defaults.template = "simple_white"
 
 st.set_page_config(
     page_title="Aimoro Smart Sourcing",
-    page_icon=Image.open(LOGO_PATH),
+    page_icon=Image.open(FAVICON_PATH),
     layout="wide"
 )
 
