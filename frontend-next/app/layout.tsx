@@ -5,7 +5,6 @@ import { AppShell } from '@/components/AppShell'
 export const metadata: Metadata = {
   title: 'Aimoro Smart Sourcing',
   description: 'AI-powered supplier sourcing for ecommerce sellers',
-  icons: { icon: '/favicon.png' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
