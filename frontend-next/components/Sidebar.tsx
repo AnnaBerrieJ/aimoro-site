@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { useTheme } from './ThemeProvider'
 
 const NAV_ITEMS = [
   {
@@ -70,6 +71,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
+  const { theme, toggle } = useTheme()
 
   return (
     <>
@@ -125,11 +127,37 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-white/5 flex items-center justify-between">
-          <p className="text-[11px] text-slate-500 leading-relaxed italic">
-            Innovate. Elevate. Dominate.
-          </p>
-          <kbd className="text-[10px] font-mono font-semibold text-slate-600 bg-white/8 px-1.5 py-0.5 rounded border border-white/10" title="Keyboard shortcuts">?</kbd>
+        <div className="px-5 py-4 border-t border-white/5 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-slate-500 leading-relaxed italic">
+              Innovate. Elevate. Dominate.
+            </p>
+            <kbd className="text-[10px] font-mono font-semibold text-slate-600 bg-white/8 px-1.5 py-0.5 rounded border border-white/10" title="Keyboard shortcuts">?</kbd>
+          </div>
+          {/* Dark mode toggle */}
+          <button
+            onClick={toggle}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group"
+            aria-label="Toggle dark mode"
+          >
+            <div className="flex items-center gap-2.5">
+              {theme === 'dark' ? (
+                <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.772 17.303a.75.75 0 00-1.06 1.06l1.59 1.591a.75.75 0 001.061-1.06l-1.59-1.591zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.166 6.106a.75.75 0 001.06 1.06l1.591-1.59a.75.75 0 00-1.06-1.061l-1.591 1.59z" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path fillRule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clipRule="evenodd" />
+                </svg>
+              )}
+              <span className="text-[11px] font-semibold text-slate-400 group-hover:text-slate-300 transition-colors">
+                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              </span>
+            </div>
+            <div className={`w-7 h-4 rounded-full transition-colors ${theme === 'dark' ? 'bg-amber-400' : 'bg-slate-600'}`}>
+              <div className={`w-3 h-3 bg-white rounded-full mt-0.5 transition-transform ${theme === 'dark' ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+            </div>
+          </button>
         </div>
       </aside>
     </>

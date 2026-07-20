@@ -1,0 +1,26 @@
+{
+  "name": "Aimoro Smart Sourcing",
+  "short_name": "Aimoro",
+  "description": "AI-powered supplier sourcing for ecommerce sellers",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "shopping"],
+  "screenshots": []
+}

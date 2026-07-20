@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTheme } from '@/components/ThemeProvider'
 
 const STORAGE_KEYS = [
   { key: 'aimoro_search_history', label: 'Search history' },
@@ -21,6 +22,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function SettingsPage() {
+  const { theme, toggle } = useTheme()
   const [apiUrl, setApiUrl]     = useState('')
   const [testing, setTesting]   = useState(false)
   const [testResult, setTestResult] = useState<'ok' | 'error' | null>(null)
@@ -67,6 +69,27 @@ export default function SettingsPage() {
         <p className="text-xs font-bold text-[#c40000] uppercase tracking-widest mb-1">Configuration</p>
         <h1 className="text-2xl font-extrabold text-[#0f172a]">Settings</h1>
       </div>
+
+      {/* Appearance */}
+      <Section title="Appearance">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[#0f172a]">Dark mode</p>
+            <p className="text-xs text-slate-400 mt-0.5">Switch between light and dark interface</p>
+          </div>
+          <button
+            onClick={toggle}
+            className={`relative w-11 h-6 rounded-full transition-colors ${
+              theme === 'dark' ? 'bg-amber-400' : 'bg-slate-200'
+            }`}
+            aria-label="Toggle dark mode"
+          >
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+              theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
+        </div>
+      </Section>
 
       {/* Backend */}
       <Section title="Backend API">

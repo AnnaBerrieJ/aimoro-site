@@ -12,3 +12,111 @@
     background-color: #f8fafc;
   }
 }
+
+/* ── Dark mode overrides ─────────────────────────────────────────────────────
+   Applied when <html class="dark"> is set by ThemeProvider.
+   Uses !important to override Tailwind utility classes.
+   The sidebar (bg-[#0f172a]) is already dark and unaffected.
+─────────────────────────────────────────────────────────────────────────── */
+
+html.dark body {
+  background-color: #0b1120;
+}
+
+/* --- Backgrounds --- */
+html.dark .bg-white {
+  background-color: #1e293b !important;
+}
+html.dark .bg-slate-50 {
+  background-color: #0b1120 !important;
+}
+html.dark .bg-slate-100 {
+  background-color: #334155 !important;
+}
+html.dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b !important;
+}
+html.dark .hover\:bg-slate-100:hover {
+  background-color: #334155 !important;
+}
+html.dark .bg-primary-light {
+  background-color: rgba(196, 0, 0, 0.15) !important;
+}
+
+/* --- Borders --- */
+html.dark .border-slate-100,
+html.dark .border-slate-50 {
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+html.dark .border-slate-200,
+html.dark .border-gray-200 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+html.dark .border-\[\#e5e7eb\] {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+html.dark .divide-slate-50 > * + * {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+html.dark .divide-y > * + * {
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* --- Text --- */
+html.dark .text-\[\#0f172a\],
+html.dark .text-\[\#111827\],
+html.dark .text-gray-900,
+html.dark .text-\[\#0f172a\] {
+  color: #f1f5f9 !important;
+}
+html.dark .text-slate-500,
+html.dark .text-slate-600,
+html.dark .text-gray-600 {
+  color: #94a3b8 !important;
+}
+html.dark .text-slate-400,
+html.dark .text-gray-400 {
+  color: #64748b !important;
+}
+html.dark .text-gray-400 {
+  color: #64748b !important;
+}
+
+/* --- Form inputs --- */
+html.dark input[type='text'],
+html.dark input[type='number'],
+html.dark input[type='email'],
+html.dark input[type='search'],
+html.dark select,
+html.dark textarea {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #475569 !important;
+}
+
+/* --- Code / pre --- */
+html.dark code {
+  background-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+
+/* --- Table rows --- */
+html.dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b !important;
+}
+html.dark tr.border-b {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+html.dark .border-b {
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* --- Skeleton pulse --- */
+html.dark .animate-pulse .bg-white,
+html.dark .animate-pulse .bg-slate-50 {
+  background-color: #1e293b !important;
+}
