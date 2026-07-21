@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
 import { KeyboardShortcuts } from './KeyboardShortcuts'
+import { GuidedTour } from './GuidedTour'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -35,6 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <MobileNav />
       <KeyboardShortcuts />
+      <GuidedTour />
     </div>
   )
 }

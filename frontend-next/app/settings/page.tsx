@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
+import { GuidedTour, resetTour } from '@/components/GuidedTour'
 
 const STORAGE_KEYS = [
   { key: 'aimoro_search_history', label: 'Search history' },
@@ -23,6 +24,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function SettingsPage() {
   const { theme, toggle } = useTheme()
+  const [showTour, setShowTour] = useState(false)
   const [apiUrl, setApiUrl]     = useState('')
   const [testing, setTesting]   = useState(false)
   const [testResult, setTestResult] = useState<'ok' | 'error' | null>(null)
@@ -69,6 +71,8 @@ export default function SettingsPage() {
         <p className="text-xs font-bold text-[#c40000] uppercase tracking-widest mb-1">Configuration</p>
         <h1 className="text-2xl font-extrabold text-[#0f172a]">Settings</h1>
       </div>
+
+      {showTour && <GuidedTour forceOpen onClose={() => setShowTour(false)} />}
 
       {/* Appearance */}
       <Section title="Appearance">
@@ -159,6 +163,38 @@ export default function SettingsPage() {
         >
           Clear all local data
         </button>
+      </Section>
+
+      {/* Help */}
+      <Section title="Help & Onboarding">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[#0f172a]">Guided tour</p>
+            <p className="text-xs text-slate-400 mt-0.5">Replay the step-by-step walkthrough</p>
+          </div>
+          <button
+            onClick={() => { resetTour(); setShowTour(true) }}
+            className="flex items-center gap-1.5 text-sm font-semibold bg-[#fff1f1] text-[#c40000] hover:bg-[#fde8e8] px-4 py-2 rounded-xl transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Restart tour
+          </button>
+        </div>
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+          <div>
+            <p className="text-sm font-semibold text-[#0f172a]">Feature guide</p>
+            <p className="text-xs text-slate-400 mt-0.5">Full written walkthrough of every feature</p>
+          </div>
+          <a
+            href="/demo"
+            className="text-sm font-semibold text-slate-600 hover:text-[#c40000] border border-slate-200 hover:border-[#c40000]/30 px-4 py-2 rounded-xl transition-all"
+          >
+            View guide
+          </a>
+        </div>
       </Section>
 
       {/* About */}
