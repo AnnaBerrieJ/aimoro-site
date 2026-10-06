@@ -6,9 +6,18 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from suppliers import suppliers
 from database import create_tables, save_supplier_to_db, get_saved_suppliers, delete_saved_supplier
+from agent.db import init_db
+from agent.routers import admin as agent_admin, auth as agent_auth, customer as agent_customer, operations as agent_ops
 
 app = FastAPI(title="Aimoro Smart Sourcing System")
 create_tables()
+
+# Sourcing-agent features: customer accounts, requests, quotes, invoices.
+init_db()
+app.include_router(agent_auth.router)
+app.include_router(agent_customer.router)
+app.include_router(agent_admin.router)
+app.include_router(agent_ops.router)
 
 # --- ML ranking model -------------------------------------------------
 # Trained by backend/ml/train_model.py on backend/ml/supplier_training_data.csv.
@@ -32,13 +41,13 @@ except Exception:
 
 # Comma-separated list of allowed origins, e.g. "http://localhost:8501,https://aimoro.com"
 # Set ALLOWED_ORIGINS in your .env / deployment environment. Defaults to local dev only.
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:8501").split(",")
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:8501,http://localhost:3000").split(",")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 

@@ -25,3 +25,6 @@ venv/
 # Next.js
 frontend-next/.next/
 frontend-next/node_modules/
+
+# Customer photo uploads
+backend/uploads/

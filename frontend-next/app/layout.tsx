@@ -2,10 +2,11 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { AppShell } from '@/components/AppShell'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { AuthProvider } from '@/components/AuthProvider'
 
 export const metadata: Metadata = {
-  title: 'Aimoro Smart Sourcing',
-  description: 'AI-powered supplier sourcing for ecommerce sellers',
+  title: 'AIMORO · China to The Bahamas',
+  description: 'Tell us what you want from China. We find it, quote one price, and deliver it to your address in The Bahamas.',
   manifest: '/manifest.json',
 }
 
@@ -31,12 +32,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Aimoro" />
+        <meta name="apple-mobile-web-app-title" content="AIMORO" />
         <link rel="apple-touch-icon" href="/favicon.png" />
       </head>
       <body className="font-sans antialiased">
         <ThemeProvider>
-          <AppShell>{children}</AppShell>
+          <AuthProvider>
+            <AppShell>{children}</AppShell>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

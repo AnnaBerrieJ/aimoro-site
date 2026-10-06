@@ -4,8 +4,6 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
-import { KeyboardShortcuts } from './KeyboardShortcuts'
-import { GuidedTour } from './GuidedTour'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -27,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </svg>
           </button>
           <Image src="/favicon.png" alt="Aimoro" width={28} height={28} className="object-contain" />
-          <span className="font-extrabold text-white text-sm">Aimoro Smart Sourcing</span>
+          <span className="font-extrabold text-white text-sm">AIMORO</span>
         </header>
 
         <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
@@ -35,8 +33,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <MobileNav />
-      <KeyboardShortcuts />
-      <GuidedTour />
     </div>
   )
 }

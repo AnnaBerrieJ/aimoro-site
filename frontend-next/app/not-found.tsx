@@ -14,7 +14,7 @@ export default function NotFound() {
       <p className="text-xs font-bold text-[#c40000] uppercase tracking-widest mb-2">404</p>
       <h1 className="text-3xl font-extrabold text-[#0f172a] mb-3">Page not found</h1>
       <p className="text-slate-500 text-sm max-w-xs mb-8">
-        This supplier may have moved or doesn&apos;t exist. Let&apos;s get you back to sourcing.
+        This page doesn&apos;t exist. Let&apos;s get you back to your requests.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -22,13 +22,13 @@ export default function NotFound() {
           href="/"
           className="bg-gradient-to-r from-[#c40000] to-[#950000] text-white font-bold px-6 py-2.5 rounded-xl shadow-btn hover:shadow-btn-hover hover:-translate-y-px transition-all text-sm"
         >
-          Go to Dashboard
+          Go home
         </Link>
         <Link
-          href="/find-suppliers"
+          href="/my-requests"
           className="bg-white border border-slate-200 text-[#0f172a] font-bold px-6 py-2.5 rounded-xl hover:border-[#c40000]/30 hover:text-[#c40000] transition-all text-sm"
         >
-          Find Suppliers
+          My requests
         </Link>
       </div>
     </div>

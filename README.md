@@ -1,160 +1,91 @@
-# Aimoro Smart Sourcing
+# AIMORO
 
-**Live demo: [aimoro.co](https://aimoro.co)** (backend API: [aimoro-backend.onrender.com](https://aimoro-backend.onrender.com))
+**Anything from China, delivered to your door in The Bahamas.** Live at [aimoro.co](https://aimoro.co).
 
-Aimoro is a supplier-sourcing tool for ecommerce sellers evaluating Alibaba and AliExpress suppliers. You search by product, country, and price, and Aimoro ranks the results with a trained ML model, flags a risk level, and explains why each supplier is (or isn't) worth pursuing.
+Customers sign up, describe a product (photo or link), and get one quote in BSD covering the product, shipping to their address and AIMORO's service fee. AIMORO sources it on Taobao / Pinduoduo / 1688, orders it, checks it at a China warehouse, ships it in a consolidated shipment, and delivers it to the address on the request. **Delivery to that address is the end of AIMORO's service.**
 
-A FastAPI backend serves supplier data, scoring, and persistence. A Next.js frontend provides the search UI, comparison tables, analytics charts, and an OpenAI-powered sourcing assistant.
+Sourcing details (supplier links, CNY prices, margin, supplier order numbers, warehouse notes, freight cost) are admin-only and never returned by customer endpoints — the test suite checks this.
 
-## Why it's interesting
+## Pages
 
-The scoring engine used to be a fixed-weight formula (`price*0.35 + rating*0.30 + ...`). It's been replaced with a **trained GradientBoostingRegressor** (see `backend/ml/train_model.py`), evaluated against that original formula as a baseline on the same held-out test set:
-
-| | MAE (lower is better) | R² (higher is better) |
+| Who | Page | Purpose |
 |---|---|---|
-| Fixed-weight formula (baseline) | 27.05 | -0.284 |
-| Trained model | 17.05 | 0.491 |
+| Everyone | `/` | Home: how it works, sign up / log in |
+| Customer | `/signup`, `/login` | Account with phone/WhatsApp, island, address |
+| Customer | `/my-requests`, `/my-requests/new`, `/my-requests/[id]` | Submit requests (photo/link, delivery address), approve quote, invoice PDF, pay, shipping progress, timeline |
+| Admin | `/admin`, `/admin/requests/[id]` | Request queue; sourcing listings; quote builder with live preview and private margin; mark paid; supplier order; warehouse check; timeline with WhatsApp share; email log |
+| Admin | `/admin/shipments`, `/admin/shipments/[id]` | Combine ordered items into one shipment; mark shipped → delivered (updates and emails every customer in it) |
 
-The model cuts prediction error by **37%**, and the baseline formula actually performs *worse than predicting the mean* (negative R²) — a concrete, quantified argument for why the ML approach replaced the hand-tuned one. Feature importances and these metrics are exposed live via `GET /model-info`, so the ranking isn't a black box.
+## How an order moves
 
-The training data is synthetic (`backend/ml/generate_dataset.py`) — Aimoro doesn't yet have real transaction outcomes to learn from. That's documented in the code, not hidden: the generator encodes domain assumptions (price, rating, delivery speed, verification, MOQ, platform) with realistic noise and correlations, and `label_quality()` is meant to be replaced with real outcome labels (saves, clicks, completed orders, disputes) once that data exists.
+received → sourcing → quote ready → paid → ordered → shipped → delivered
 
-## Features
-
-- **Supplier search** — filter by product, country, max price, verified-only
-- **ML-ranked results** — `aimoro_score` from the trained model, with graceful fallback to the fixed formula if the model file isn't present
-- **Risk scoring** — Low / Medium / High based on rating, delivery time, verification, and MOQ
-- **Plain-language recommendations** — why a supplier scored the way it did
-- **Save/compare suppliers** — persisted to SQLite, viewable and deletable later
-- **Analytics dashboards** — price, score, platform, and risk distributions via Recharts
-- **AI sourcing assistant** — OpenAI-backed chat for negotiation/risk/sourcing questions
-
-## Architecture
-
-```
-┌─────────────────────┐         HTTP          ┌──────────────────────┐
-│   Next.js frontend  │ ───────────────────▶  │   FastAPI backend    │
-│  (frontend-next/)   │ ◀───────────────────  │   (backend/main.py)  │
-└─────────────────────┘                        └──────────┬───────────┘
-         │                                                 │
-         │ /api/negotiate                 ┌────────────────┼────────────────┐
-         │ /api/ai-assistant              ▼                ▼                ▼
-         ▼                      backend/suppliers.py  backend/ml/*.joblib  backend/database.py
-      OpenAI                     (supplier catalog)    (trained ranking     (SQLite: saved
-                                                         model)              suppliers)
-```
-
-OpenAI is called server-side via Next.js API routes — the key is never exposed to the browser.
+**Quote formula** (`backend/agent/pricing.py`): total = (¥ price × qty + ¥ China shipping) × FX + shipping to the customer's address + service fee (default 12%, minimum $15). FX (CNY→USD, = BSD) is fetched daily and frozen on each quote; quotes expire after 7 days.
 
 ## Tech stack
 
-- **Backend**: FastAPI, Uvicorn, SQLite
-- **ML**: scikit-learn (`GradientBoostingRegressor`), pandas, joblib
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Recharts
+- **Backend:** FastAPI, SQLAlchemy (SQLite locally, Postgres in production), JWT auth, fpdf2 invoices, optional Stripe Checkout, optional Resend email
+- **Frontend:** Next.js 14, TypeScript, Tailwind CSS
 
-## API
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/` | Health check |
-| GET | `/suppliers?product=&country=&max_price=&verified=` | Ranked, filtered supplier list |
-| GET | `/model-info` | Model status, evaluation metrics, feature importances, baseline comparison |
-| POST | `/save-supplier/{supplier_id}` | Save a supplier to SQLite |
-| GET | `/saved-suppliers` | List saved suppliers |
-| DELETE | `/saved-suppliers/{saved_id}` | Remove a saved supplier |
-
-## Getting started
-
-### Prerequisites
-
-- Python 3.10+
-- Node.js 20+
-
-### 1. Clone and configure
+## Run locally
 
 ```bash
-git clone <this-repo>
-cd aimoro-smart-sourcing
-cp .env.example .env   # fill in OPENAI_API_KEY and NEXT_PUBLIC_API_BASE_URL
-```
+cp .env.example .env            # fill in values
 
-### 2. Backend
-
-```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
+ADMIN_EMAILS=you@example.com uvicorn main:app --reload   # sign up with that email to get admin
+pytest tests                                              # 14 tests
 
-The API is now at `http://127.0.0.1:8000`. A pre-trained model ships in `backend/ml/`, so ranking works out of the box. To regenerate the dataset and retrain:
-
-```bash
-python ml/generate_dataset.py
-python ml/train_model.py
-```
-
-### 3. Frontend
-
-In a second terminal:
-
-```bash
-cd frontend-next
+cd ../frontend-next
 npm install
-npm run dev
+npm run dev                     # http://localhost:3000
 ```
-
-Open `http://localhost:3000`.
 
 ## Configuration
 
-| Variable | Used by | Purpose |
+| Variable | Where | Purpose |
 |---|---|---|
-| `OPENAI_API_KEY` | frontend (server-side) | Powers the Negotiate and AI Assistant pages |
-| `ALLOWED_ORIGINS` | backend | Comma-separated CORS allowlist |
-| `NEXT_PUBLIC_API_BASE_URL` | frontend | Backend URL the frontend calls (defaults to `http://127.0.0.1:8000`) |
+| `SECRET_KEY` | backend | Signs login tokens (required in production; the server refuses to start on Render without it) |
+| `ADMIN_EMAILS` | backend | Signing up with one of these emails creates an admin account |
+| `DATABASE_URL` | backend | Postgres URL in production; unset = SQLite `backend/agent.db` |
+| `ALLOWED_ORIGINS` | backend | Comma-separated CORS allowlist (add the site URL) |
+| `SITE_URL` | backend | Public site URL, used in emails and Stripe return links |
+| `DEFAULT_CNY_USD` | backend | Fallback exchange rate if the rate API is unreachable |
+| `STRIPE_SECRET_KEY` | backend | Optional: card payments. Unset = bank transfer + "Mark paid" |
+| `BANK_TRANSFER_INSTRUCTIONS` | backend | Shown to customers on unpaid invoices |
+| `RESEND_API_KEY`, `EMAIL_FROM` | backend | Optional: customer emails. Unset = emails logged as "skipped" |
+| `UPLOAD_DIR` | backend | Where customer photos are stored (use a persistent disk in production) |
+| `NEXT_PUBLIC_API_BASE_URL` | frontend | Backend URL (defaults to `http://127.0.0.1:8000`) |
 
 ## Deployment
 
 Both services run on Render as separate Web Services:
 
-- **Backend**: Root Directory `backend`, auto-detected via `backend/Dockerfile`. Env vars: `ALLOWED_ORIGINS` set to the frontend's URL.
-- **Frontend**: Root Directory `frontend-next`, Node runtime. Build command: `npm install && npm run build`. Start command: `npm start`. Env vars: `OPENAI_API_KEY`, `NEXT_PUBLIC_API_BASE_URL` set to the backend's URL.
-- The custom domain (`aimoro.co`) is attached to the **frontend** service in Render's Custom Domains settings.
+- **Backend:** Root Directory `backend` (Dockerfile). Set the backend variables above.
+- **Frontend:** Root Directory `frontend-next`. Build `npm install && npm run build`, start `npm start`. Set `NEXT_PUBLIC_API_BASE_URL`.
+- The custom domain (`aimoro.co`) is attached to the frontend service.
 
 ## Project structure
 
 ```
 backend/
-  main.py                        FastAPI app: scoring, risk, recommendations, endpoints
-  suppliers.py                   Loads the supplier catalog (supplier_catalog.json)
-  supplier_catalog.json          250 generated suppliers across 4 countries, 10 products
-  generate_supplier_catalog.py   Regenerates supplier_catalog.json
-  database.py                    SQLite persistence for saved suppliers
-  ml/
-    generate_dataset.py          Synthetic training data generator
-    train_model.py               Trains + evaluates the GradientBoostingRegressor
-    supplier_model.joblib        Trained model (checked in so the app works out of the box)
-    model_metrics.json           Evaluation metrics, feature importances, baseline comparison
-
+  main.py                 FastAPI app; mounts the routers below
+  agent/
+    models.py             Users, requests, supplier listings, quotes, invoices, shipments, timeline, notifications
+    pricing.py            Quote formula
+    routers/auth.py       Sign up / log in
+    routers/customer.py   Requests, photos, approve quote, invoices, payment
+    routers/admin.py      Queue, listings, quote builder, mark paid
+    routers/operations.py Supplier order, warehouse check, shipments
+    notify.py             Timeline events + email notifications
+    invoice_pdf.py        Invoice PDFs
+    payments.py           Optional Stripe Checkout
+  tests/                  pytest suite
 frontend-next/
-  app/
-    page.tsx                     Dashboard
-    find-suppliers/page.tsx      Supplier search, results, comparison table, analytics
-    saved-suppliers/page.tsx     Saved supplier list with delete
-    analytics/page.tsx           Charts for saved suppliers
-    negotiate/page.tsx           AI-drafted negotiation message
-    ai-assistant/page.tsx        OpenAI sourcing chat
-    api/negotiate/route.ts       Server-side OpenAI route for negotiation drafts
-    api/ai-assistant/route.ts    Server-side OpenAI route for sourcing questions
-  components/                    Sidebar, MetricCard, SupplierCard, ScoreBox, RiskBadge, charts
-  lib/
-    types.ts                     TypeScript interfaces
-    api.ts                       FastAPI client functions
+  app/                    Pages listed above
+  components/             App shell, sidebar, mobile nav, auth, shared UI
+  lib/agent.ts            API client and types
 ```
 
-## Future improvements
-
-- Replace synthetic training labels with real outcome data (saves, completed orders, disputes) once available
-- Wire up the AliExpress Affiliate API for real product listings (Alibaba/AliExpress don't expose a public "full vendor database" API, so the catalog is generated demo data — see `backend/generate_supplier_catalog.py`)
-- Add automated tests for scoring/risk logic and API endpoints
-- Add CI (lint + test) on push
+The backend still contains the earlier supplier-ranking code (`suppliers.py`, `ml/`, `/suppliers`, `/model-info`); no page uses it now. It can be reused later to rank sourcing listings.
