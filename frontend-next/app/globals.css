@@ -21,6 +21,8 @@
 
 html.dark body {
   background-color: #0b1120;
+  /* Text with no colour class of its own inherits this instead of black */
+  color: #e2e8f0;
 }
 
 /* --- Backgrounds --- */
@@ -62,24 +64,65 @@ html.dark .divide-y > * + * {
   border-color: rgba(255, 255, 255, 0.07) !important;
 }
 
-/* --- Text --- */
+/* --- Text ---
+   Every dark text shade maps to a light one with readable contrast
+   (≥ 4.5:1 on the #0b1120 page and #1e293b cards). */
 html.dark .text-\[\#0f172a\],
 html.dark .text-\[\#111827\],
 html.dark .text-gray-900,
-html.dark .text-\[\#0f172a\] {
+html.dark .text-slate-900,
+html.dark .text-slate-800 {
   color: #f1f5f9 !important;
 }
-html.dark .text-slate-500,
+html.dark .text-slate-700 {
+  color: #e2e8f0 !important;
+}
 html.dark .text-slate-600,
 html.dark .text-gray-600 {
-  color: #94a3b8 !important;
+  color: #cbd5e1 !important;
+}
+html.dark .text-slate-500 {
+  color: #a8b3c4 !important;
 }
 html.dark .text-slate-400,
 html.dark .text-gray-400 {
-  color: #64748b !important;
+  color: #94a3b8 !important;
 }
-html.dark .text-gray-400 {
-  color: #64748b !important;
+/* Brand red text is too dark on navy: use a lighter red */
+html.dark .text-\[\#c40000\],
+html.dark .hover\:text-\[\#c40000\]:hover {
+  color: #f87171 !important;
+}
+/* Status colours used as text */
+html.dark .text-emerald-700, html.dark .text-emerald-800 { color: #6ee7b7 !important; }
+html.dark .text-amber-700, html.dark .text-amber-800 { color: #fcd34d !important; }
+html.dark .text-red-600 { color: #fca5a5 !important; }
+/* …but text inside light-tinted chips and notes stays dark so it reads on the tint */
+html.dark [class*="bg-emerald-50"] .text-emerald-700, html.dark .bg-emerald-50.text-emerald-700,
+html.dark .bg-emerald-50.text-emerald-800, html.dark .bg-emerald-100.text-emerald-800 { color: #047857 !important; }
+html.dark .bg-amber-50.text-amber-700, html.dark .bg-amber-50.text-amber-800 { color: #92400e !important; }
+html.dark .bg-red-50.text-red-600 { color: #b91c1c !important; }
+
+/* --- Website (public pages) --- */
+html.dark .bg-white\/95 {
+  background-color: rgba(11, 17, 32, 0.95) !important;
+}
+html.dark .bg-slate-50\/60 {
+  background-color: #1e293b !important;
+}
+html.dark .bg-\[\#f5ebdd\] {
+  background-color: #131c2e !important;
+}
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-\[\#fff1f1\]:hover {
+  background-color: #334155 !important;
+}
+html.dark .bg-\[\#c40000\]\/10 {
+  background-color: rgba(248, 113, 113, 0.15) !important;
+}
+html.dark .divide-slate-200 > * + *,
+html.dark .divide-slate-100 > * + * {
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* --- Form inputs --- */
