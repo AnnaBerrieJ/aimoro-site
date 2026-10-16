@@ -1,6 +1,5 @@
 """Customer endpoints: requests, quotes, invoices, payment."""
 import os
-import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
@@ -10,17 +9,17 @@ from sqlalchemy.orm import Session
 
 from .. import payments
 from ..auth import get_current_user
-from ..common import UPLOAD_DIR, current_quote, get_request_for, is_expired, to_customer
+from ..common import (active_options, current_quote, get_request_for, is_expired, save_photo, to_customer,
+                      upload_path)
 from ..db import get_db
 from ..invoice_pdf import build_invoice_pdf
+from ..options_pdf import build_options_pdf
 from ..models import Invoice, ProductRequest, User
 from ..notify import add_event, notify_admins, notify_customer
 from ..schemas import RequestIn, RequestOut
 
 router = APIRouter(tags=["customer"])
 
-ALLOWED_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
-MAX_PHOTO_BYTES = 8 * 1024 * 1024
 CANCELLABLE = {"received", "sourcing", "quote_ready"}
 
 
@@ -59,17 +58,7 @@ def get_request(request_id: int, user: User = Depends(get_current_user), db: Ses
 async def upload_photo(request_id: int, file: UploadFile = File(...),
                        user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     req = get_request_for(db, request_id, user)
-    ext = ALLOWED_IMAGE_TYPES.get(file.content_type or "")
-    if ext is None:
-        raise HTTPException(400, "Photo must be a JPG, PNG or WebP file")
-    data = await file.read(MAX_PHOTO_BYTES + 1)
-    if len(data) > MAX_PHOTO_BYTES:
-        raise HTTPException(400, "Photo must be under 8 MB")
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    name = f"req{req.id}_{uuid.uuid4().hex}{ext}"
-    with open(os.path.join(UPLOAD_DIR, name), "wb") as fh:
-        fh.write(data)
-    req.photo_path = name
+    req.photo_path = await save_photo(file, f"req{req.id}")
     db.commit()
     return to_customer(req)
 
@@ -79,7 +68,33 @@ def get_photo(request_id: int, user: User = Depends(get_current_user), db: Sessi
     req = get_request_for(db, request_id, user)
     if not req.photo_path:
         raise HTTPException(404, "No photo")
-    return FileResponse(os.path.join(UPLOAD_DIR, os.path.basename(req.photo_path)))
+    return FileResponse(upload_path(req.photo_path))
+
+
+@router.get("/requests/{request_id}/options/{quote_id}/photo")
+def option_photo(request_id: int, quote_id: int, user: User = Depends(get_current_user),
+                 db: Session = Depends(get_db)):
+    """Photo of a found product. Customers only see photos of options actually sent to them."""
+    req = get_request_for(db, request_id, user)
+    quote = next((q for q in req.quotes if q.id == quote_id), None)
+    visible = quote is not None and (user.role == "admin" or quote.status in ("sent", "approved"))
+    if not visible or not quote.listing or not quote.listing.photo_path:
+        raise HTTPException(404, "No photo")
+    return FileResponse(upload_path(quote.listing.photo_path))
+
+
+@router.get("/requests/{request_id}/options.pdf")
+def options_pdf(request_id: int, preview: bool = Query(default=False),
+                user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """preview=true: blurred photos and some details, for sharing before the order is confirmed."""
+    req = get_request_for(db, request_id, user)
+    opts = active_options(req)
+    if not opts:
+        raise HTTPException(404, "There are no options to show yet")
+    pdf = build_options_pdf(req, opts, preview=preview)
+    suffix = "-preview" if preview else ""
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="AIMORO-options-request-{req.id}{suffix}.pdf"'})
 
 
 @router.post("/requests/{request_id}/cancel", response_model=RequestOut)
@@ -94,23 +109,38 @@ def cancel_request(request_id: int, user: User = Depends(get_current_user), db: 
 
 
 @router.post("/requests/{request_id}/approve", response_model=RequestOut)
-def approve_quote(request_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def approve_quote(request_id: int, quote_id: int | None = Query(default=None),
+                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Approve the quote, or choose one of several options (pass quote_id)."""
     req = get_request_for(db, request_id, user)
     if req.user_id != user.id:
         raise HTTPException(403, "Only the customer can approve their quote")
-    quote = current_quote(req)
-    if quote is None or req.status != "quote_ready":
-        raise HTTPException(400, "There is no quote to approve")
-    if quote.status == "approved":
+    opts = active_options(req)
+    if any(q.status == "approved" for q in opts):
         return to_customer(req)
+    if not opts or req.status != "quote_ready":
+        raise HTTPException(400, "There is no quote to approve")
+    if quote_id is None:
+        if len(opts) > 1:
+            raise HTTPException(400, "Please choose one of the options")
+        quote = opts[0]
+    else:
+        quote = next((q for q in opts if q.id == quote_id), None)
+        if quote is None:
+            raise HTTPException(400, "That option is no longer available")
     if is_expired(quote):
         raise HTTPException(400, "This quote has expired. We'll send you an updated one.")
+
     quote.status = "approved"
+    for other in opts:
+        if other is not quote:
+            other.status = "superseded"
     invoice = Invoice(quote_id=quote.id, number="pending", amount_bsd=quote.total_bsd)
     db.add(invoice)
     db.flush()
     invoice.number = f"AIM-{datetime.now(timezone.utc):%Y}-{invoice.id:04d}"
-    add_event(db, req, "approved", f"You approved the quote. Invoice {invoice.number} is ready to pay.")
+    chosen = f"You chose option {quote.option_number}. " if len(opts) > 1 else "You approved the quote. "
+    add_event(db, req, "approved", f"{chosen}Invoice {invoice.number} is ready to pay.")
     db.commit()
     db.refresh(req)
     return to_customer(req)
@@ -139,7 +169,7 @@ def payment_config():
         "stripe_enabled": payments.stripe_enabled(),
         "bank_instructions": os.getenv(
             "BANK_TRANSFER_INSTRUCTIONS",
-            "Bank transfer details will be sent to you by email or WhatsApp. "
+            "Payment details sent by WhatsApp. "
             "Use your invoice number as the payment reference.",
         ),
     }

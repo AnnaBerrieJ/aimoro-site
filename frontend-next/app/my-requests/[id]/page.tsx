@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { RequireAuth } from '@/components/agent/RequireAuth'
 import { Card, ErrorNote, StatusSteps, primaryBtn, secondaryBtn } from '@/components/agent/ui'
-import { QuoteLines } from '@/components/agent/QuoteLines'
+import { OptionsView } from '@/components/agent/OptionsView'
 import { ShipmentSteps, Timeline } from '@/components/agent/Timeline'
 import * as api from '@/lib/agent'
 import { bsd, shortDate } from '@/lib/agent'
@@ -52,13 +52,11 @@ function RequestDetail() {
     return <div className="max-w-3xl mx-auto px-4 py-8"><ErrorNote message={error} />{!error && <p className="text-sm text-slate-500">Loading…</p>}</div>
   }
 
-  const q = req.quote
   const inv = req.invoice
-  const canApprove = req.status === 'quote_ready' && q?.status === 'sent'
   const canCancel = ['received', 'sourcing', 'quote_ready'].includes(req.status) && !inv
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-4">
+    <div className={`${req.options.length > 1 && !req.options.some(o => o.status === 'approved') ? 'max-w-6xl' : 'max-w-3xl'} mx-auto px-4 py-8 space-y-4`}>
       <Link href="/my-requests" className="text-sm font-semibold text-slate-500 hover:text-slate-800">← My requests</Link>
       {params.get('new') && (
         <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
@@ -72,24 +70,10 @@ function RequestDetail() {
       <StatusSteps status={req.status} />
       <ErrorNote message={error} />
 
-      {q && (q.status === 'sent' || q.status === 'approved' || q.status === 'expired') && (
-        <Card>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold text-slate-900">Your quote</h2>
-            <span className="text-xs text-slate-500">
-              {q.status === 'expired' ? 'Expired' : q.status === 'approved' ? 'Approved' : `Valid until ${shortDate(q.expires_at)}`}
-            </span>
-          </div>
-          {q.message && <p className="text-sm text-slate-600 bg-slate-50 rounded-xl px-3 py-2 mb-2">{q.message}</p>}
-          <QuoteLines quote={q} />
-          {canApprove && (
-            <button disabled={busy} className={`${primaryBtn} w-full mt-4`}
-              onClick={() => act(async () => setReq(await api.approveQuote(req.id)))}>
-              Approve quote · {bsd(q.total_bsd)}
-            </button>
-          )}
-          {q.status === 'expired' && <p className="text-sm text-amber-700 mt-3">This quote expired. We'll send you an updated one.</p>}
-        </Card>
+      {req.options.length > 0 && (
+        <OptionsView req={req} customerPhotoUrl={photoUrl} busy={busy}
+          onChoose={quoteId => act(async () => setReq(await api.approveQuote(req.id, quoteId)))}
+          onDownload={() => act(() => api.downloadOptionsPdf(req.id))} />
       )}
 
       {inv && (
@@ -110,7 +94,7 @@ function RequestDetail() {
                 </button>
               )}
               <p className="text-sm text-slate-600 bg-slate-50 rounded-xl px-3 py-2">
-                <span className="font-semibold">Bank transfer: </span>{payCfg.bank_instructions}
+                <span className="font-semibold">How to pay: </span>{payCfg.bank_instructions}
               </p>
             </div>
           )}
@@ -150,7 +134,7 @@ function RequestDetail() {
           {req.description && <div><dt className="inline text-slate-500">Details: </dt><dd className="inline whitespace-pre-wrap">{req.description}</dd></div>}
           {req.reference_url && <div><dt className="inline text-slate-500">Link: </dt><dd className="inline break-all"><a className="text-[#c40000] underline" href={req.reference_url} target="_blank" rel="noopener noreferrer">{req.reference_url}</a></dd></div>}
         </dl>
-        {photoUrl && <img src={photoUrl} alt="Your product photo" className="mt-3 max-h-64 rounded-xl border border-slate-100" />}
+        {photoUrl && req.options.length === 0 && <img src={photoUrl} alt="Your product photo" className="mt-3 max-h-64 rounded-xl border border-slate-100" />}
       </Card>
 
       {canCancel && (

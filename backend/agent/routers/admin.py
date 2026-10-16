@@ -1,18 +1,20 @@
 """Admin-only endpoints: request queue, sourcing listings, quote builder."""
+import json
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import require_admin
-from ..common import to_customer
+from ..common import parse_specs, save_photo, to_customer, upload_path
 from ..db import get_db
 from ..fx import get_cny_usd
 from ..models import PLATFORMS, REQUEST_STATUSES, Invoice, Notification, ProductRequest, Quote, SupplierListing, User
 from ..pricing import QuoteInputs, calculate_quote
 from ..schemas import (AdminEventOut, AdminQuoteOut, AdminRequestOut, AdminRequestUpdate, CustomerBrief,
-                       InvoiceOut, ListingIn, ListingOut, NotificationOut, QuoteBuildIn)
+                       InvoiceOut, ListingIn, ListingOut, NotificationOut, ProposalIn, QuoteBuildIn)
 from .customer import mark_invoice_paid
 from ..notify import add_event, notify_customer
 
@@ -22,7 +24,14 @@ QUOTE_VALID_DAYS = 7
 
 
 def _listing_out(listing: SupplierListing, fx: float | None = None) -> ListingOut:
-    out = ListingOut.model_validate(listing)
+    out = ListingOut(
+        id=listing.id, platform=listing.platform, url=listing.url, title=listing.title,
+        price_cny=listing.price_cny, china_shipping_cny=listing.china_shipping_cny,
+        seller_rating=listing.seller_rating, weight_kg=listing.weight_kg, notes=listing.notes,
+        public_title=listing.public_title or "", public_notes=listing.public_notes or "",
+        specs=parse_specs(listing), is_chosen=listing.is_chosen, has_photo=bool(listing.photo_path),
+        created_at=listing.created_at,
+    )
     if fx:
         out.price_bsd_estimate = round((listing.price_cny + listing.china_shipping_cny) * fx, 2)
     return out
@@ -100,7 +109,8 @@ def add_listing(request_id: int, body: ListingIn, db: Session = Depends(get_db))
     req = _get_req(db, request_id)
     if body.platform not in PLATFORMS:
         raise HTTPException(400, f"Platform must be one of: {', '.join(PLATFORMS)}")
-    listing = SupplierListing(request_id=req.id, **body.model_dump())
+    listing = SupplierListing(request_id=req.id)
+    _apply_listing(listing, body)
     db.add(listing)
     if req.status == "received":
         req.status = "sourcing"
@@ -116,8 +126,34 @@ def update_listing(listing_id: int, body: ListingIn, db: Session = Depends(get_d
         raise HTTPException(404, "Listing not found")
     if body.platform not in PLATFORMS:
         raise HTTPException(400, f"Platform must be one of: {', '.join(PLATFORMS)}")
-    for k, v in body.model_dump().items():
-        setattr(listing, k, v)
+    _apply_listing(listing, body)
+    db.commit()
+    return _listing_out(listing)
+
+
+def _apply_listing(listing: SupplierListing, body: ListingIn) -> None:
+    data = body.model_dump(exclude={"specs"})
+    for k, v in data.items():
+        setattr(listing, k, v.strip() if isinstance(v, str) else v)
+    rows = [r.model_dump() for r in body.specs if r.requested.strip() or r.found.strip()]
+    listing.specs_json = json.dumps(rows) if rows else None
+
+
+@router.get("/listings/{listing_id}/photo")
+def get_listing_photo(listing_id: int, db: Session = Depends(get_db)):
+    listing = db.get(SupplierListing, listing_id)
+    if listing is None or not listing.photo_path:
+        raise HTTPException(404, "No photo")
+    return FileResponse(upload_path(listing.photo_path))
+
+
+@router.post("/listings/{listing_id}/photo", response_model=ListingOut)
+async def upload_listing_photo(listing_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """The product photo the customer sees for this option (e.g. a screenshot from the app)."""
+    listing = db.get(SupplierListing, listing_id)
+    if listing is None:
+        raise HTTPException(404, "Listing not found")
+    listing.photo_path = await save_photo(file, f"listing{listing.id}")
     db.commit()
     return _listing_out(listing)
 
@@ -164,46 +200,79 @@ def preview_quote(request_id: int, body: QuoteBuildIn, db: Session = Depends(get
     return {"fx_cny_usd": inputs.fx_cny_usd, **calculate_quote(inputs).as_dict()}
 
 
-@router.post("/requests/{request_id}/quote", response_model=AdminQuoteOut)
-def send_quote(request_id: int, body: QuoteBuildIn, background: BackgroundTasks, db: Session = Depends(get_db)):
-    req = _get_req(db, request_id)
+def _send_options(req: ProductRequest, options: list[QuoteBuildIn], message: str,
+                  background: BackgroundTasks, db: Session) -> list[Quote]:
     if req.status not in {"received", "sourcing", "quote_ready"}:
         raise HTTPException(400, f"This request can't be quoted while its status is {req.status}")
     if any(q.status == "approved" for q in req.quotes):
         raise HTTPException(400, "The customer already approved a quote")
-    listing, inputs = _inputs(req, body, db)
-    b = calculate_quote(inputs)
+    ids = [o.listing_id for o in options]
+    if len(set(ids)) != len(ids):
+        raise HTTPException(400, "Each option must use a different listing")
 
+    priced = [(_inputs(req, o, db)) for o in options]
     for old in req.quotes:
         if old.status == "sent":
             old.status = "superseded"
+    chosen = set(ids)
     for l in req.listings:
-        l.is_chosen = l.id == listing.id
+        l.is_chosen = l.id in chosen
 
-    quote = Quote(
-        request_id=req.id,
-        listing_id=listing.id,
-        fx_cny_usd=inputs.fx_cny_usd,
-        freight_cost_bsd=inputs.freight_cost_bsd,
-        freight_markup_pct=inputs.freight_markup_pct,
-        insurance_bsd=inputs.insurance_bsd,
-        service_fee_pct=inputs.service_fee_pct,
-        service_fee_min_bsd=inputs.service_fee_min_bsd,
-        margin_bsd=b.margin_bsd,
-        product_cost_bsd=b.product_cost_bsd,
-        shipping_bsd=b.shipping_bsd,
-        service_fee_bsd=b.service_fee_bsd,
-        total_bsd=b.total_bsd,
-        message=body.message,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=QUOTE_VALID_DAYS),
-    )
-    db.add(quote)
+    proposal_no = max((q.proposal_no or 0 for q in req.quotes), default=0) + 1
+    expires = datetime.now(timezone.utc) + timedelta(days=QUOTE_VALID_DAYS)
+    quotes = []
+    for n, (listing, inputs) in enumerate(priced, start=1):
+        b = calculate_quote(inputs)
+        q = Quote(
+            request_id=req.id, listing_id=listing.id, proposal_no=proposal_no, option_number=n,
+            fx_cny_usd=inputs.fx_cny_usd, freight_cost_bsd=inputs.freight_cost_bsd,
+            freight_markup_pct=inputs.freight_markup_pct, insurance_bsd=inputs.insurance_bsd,
+            service_fee_pct=inputs.service_fee_pct, service_fee_min_bsd=inputs.service_fee_min_bsd,
+            margin_bsd=b.margin_bsd, product_cost_bsd=b.product_cost_bsd, shipping_bsd=b.shipping_bsd,
+            service_fee_bsd=b.service_fee_bsd, total_bsd=b.total_bsd, message=message, expires_at=expires,
+        )
+        db.add(q)
+        quotes.append(q)
     req.status = "quote_ready"
-    msg = f"Your quote is ready: ${b.total_bsd:,.2f} BSD. It is valid for {QUOTE_VALID_DAYS} days."
+
+    if len(quotes) == 1:
+        subject = "Your quote is ready"
+        msg = f"Your quote is ready: ${quotes[0].total_bsd:,.2f} BSD. It is valid for {QUOTE_VALID_DAYS} days."
+    else:
+        low = min(q.total_bsd for q in quotes)
+        subject = "Your options are ready"
+        msg = (f"We found {len(quotes)} options for you, from ${low:,.2f} BSD. "
+               f"Compare them side by side and choose one. They are valid for {QUOTE_VALID_DAYS} days.")
     add_event(db, req, "quote", msg)
-    notify_customer(db, background, req, "Your quote is ready", msg)
+    notify_customer(db, background, req, subject, msg)
     db.commit()
-    return AdminQuoteOut.model_validate(quote)
+    return quotes
+
+
+@router.post("/requests/{request_id}/quote", response_model=AdminQuoteOut)
+def send_quote(request_id: int, body: QuoteBuildIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Send a single quote (one option)."""
+    req = _get_req(db, request_id)
+    q = _send_options(req, [body], body.message, background, db)[0]
+    return AdminQuoteOut.model_validate(q)
+
+
+@router.post("/requests/{request_id}/proposal/preview")
+def preview_proposal(request_id: int, body: ProposalIn, db: Session = Depends(get_db)):
+    req = _get_req(db, request_id)
+    out = []
+    for o in body.options:
+        _, inputs = _inputs(req, o, db)
+        out.append({"listing_id": o.listing_id, "fx_cny_usd": inputs.fx_cny_usd, **calculate_quote(inputs).as_dict()})
+    return out
+
+
+@router.post("/requests/{request_id}/proposal", response_model=list[AdminQuoteOut])
+def send_proposal(request_id: int, body: ProposalIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Send 1-3 options side by side; the customer chooses one."""
+    req = _get_req(db, request_id)
+    quotes = _send_options(req, body.options, body.message, background, db)
+    return [AdminQuoteOut.model_validate(q) for q in quotes]
 
 
 @router.post("/invoices/{invoice_id}/mark-paid", response_model=InvoiceOut)

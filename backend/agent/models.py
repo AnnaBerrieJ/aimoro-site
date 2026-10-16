@@ -91,6 +91,13 @@ class SupplierListing(Base):
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")
     is_chosen: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Customer-facing presentation of this find (shown when it is sent as an option).
+    # Everything above stays admin-only.
+    public_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    public_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    specs_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # [{label, requested, found, match}]
+    photo_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     request: Mapped[ProductRequest] = relationship(back_populates="listings")
@@ -102,6 +109,9 @@ class Quote(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     request_id: Mapped[int] = mapped_column(ForeignKey("requests.id"), index=True)
     listing_id: Mapped[int | None] = mapped_column(ForeignKey("supplier_listings.id"), nullable=True)
+    # Quotes sent together are one proposal; option_number is 1-3 within it.
+    proposal_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    option_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Inputs (admin-only)
     fx_cny_usd: Mapped[float] = mapped_column(Float)
@@ -124,6 +134,7 @@ class Quote(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     request: Mapped[ProductRequest] = relationship(back_populates="quotes")
+    listing: Mapped["SupplierListing | None"] = relationship()
     invoice: Mapped["Invoice | None"] = relationship(back_populates="quote", uselist=False)
 
 

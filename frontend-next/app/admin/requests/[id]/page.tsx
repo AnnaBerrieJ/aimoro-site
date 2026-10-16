@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { RequireAuth } from '@/components/agent/RequireAuth'
@@ -8,6 +8,8 @@ import { Card, ErrorNote, StatusBadge, inputClass, labelClass, primaryBtn, secon
 import * as api from '@/lib/agent'
 import { PLATFORMS, REQUEST_STATUS_OPTIONS, SHIPMENT_LABELS, STATUS_LABELS, bsd, dateTime, shortDate, whatsappLink } from '@/lib/agent'
 import { Timeline } from '@/components/agent/Timeline'
+import { ListingCustomerView } from '@/components/agent/ListingCustomerView'
+import { OptionsBuilder } from '@/components/agent/OptionsBuilder'
 
 const EMPTY_LISTING = { platform: 'taobao', url: '', title: '', price_cny: '', china_shipping_cny: '', seller_rating: '', weight_kg: '', notes: '' }
 
@@ -27,10 +29,7 @@ function Workspace() {
   const [busy, setBusy] = useState(false)
   const [listing, setListing] = useState(EMPTY_LISTING)
 
-  // quote builder state (percent fields shown as %)
-  const [qb, setQb] = useState({ listing_id: '', fx: '', freight: '0', markup: '0', insurance: '0', fee: '12', feeMin: '15', message: '' })
-  const [preview, setPreview] = useState<api.QuotePreview | null>(null)
-  const [previewErr, setPreviewErr] = useState<string | null>(null)
+  const [openView, setOpenView] = useState<number | null>(null)
 
   // admin fields
   const [notes, setNotes] = useState('')
@@ -46,44 +45,16 @@ function Workspace() {
       setReq(r)
       setNotes(r.admin_notes)
       setTracking(r.tracking_number)
-      const chosen = r.listings.find(l => l.is_chosen) ?? r.listings[0]
-      setQb(q => ({ ...q, listing_id: q.listing_id || (chosen ? String(chosen.id) : '') }))
     } catch (e) { setError((e as Error).message) }
   }, [id])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => {
-    api.getFx().then(f => setQb(q => ({ ...q, fx: q.fx || f.rate.toFixed(4) }))).catch(() => {})
-  }, [])
   useEffect(() => {
     if (!req?.has_photo) return
     let url: string | null = null
     api.fetchFileUrl(`/requests/${req.id}/photo`).then(u => { url = u; setPhotoUrl(u) }).catch(() => {})
     return () => { if (url) URL.revokeObjectURL(url) }
   }, [req?.id, req?.has_photo])
-
-  const quoteInput = useMemo<api.QuoteBuildInput | null>(() => {
-    if (!qb.listing_id) return null
-    return {
-      listing_id: Number(qb.listing_id),
-      fx_cny_usd: num(qb.fx),
-      freight_cost_bsd: Number(qb.freight) || 0,
-      freight_markup_pct: (Number(qb.markup) || 0) / 100,
-      insurance_bsd: Number(qb.insurance) || 0,
-      service_fee_pct: (Number(qb.fee) || 0) / 100,
-      service_fee_min_bsd: Number(qb.feeMin) || 0,
-      message: qb.message,
-    }
-  }, [qb])
-
-  // live preview, debounced
-  useEffect(() => {
-    if (!quoteInput) { setPreview(null); return }
-    const t = setTimeout(() => {
-      api.previewQuote(id, quoteInput).then(p => { setPreview(p); setPreviewErr(null) }).catch(e => setPreviewErr(e.message))
-    }, 300)
-    return () => clearTimeout(t)
-  }, [id, quoteInput])
 
   async function act(fn: () => Promise<unknown>) {
     setBusy(true); setError(null)
@@ -163,12 +134,13 @@ function Workspace() {
                     <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
                       <th className="py-2 px-1">Platform</th><th className="px-1">Item</th>
                       <th className="px-1 text-right">¥ each</th><th className="px-1 text-right">¥ ship</th>
-                      <th className="px-1 text-right">≈ BSD each</th><th className="px-1">Rating</th><th className="px-1" />
+                      <th className="px-1 text-right">≈ BSD each</th><th className="px-1">Rating</th><th className="px-1">Customer view</th><th className="px-1" />
                     </tr>
                   </thead>
                   <tbody>
                     {req.listings.map(l => (
-                      <tr key={l.id} className="border-b border-slate-50 align-top">
+                      <Fragment key={l.id}>
+                      <tr className="border-b border-slate-50 align-top">
                         <td className="py-2 px-1 font-semibold capitalize">{l.platform}{l.is_chosen && <span className="ml-1 text-[10px] text-emerald-700">✓ quoted</span>}</td>
                         <td className="px-1 max-w-[220px]">
                           {l.url ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-[#c40000] underline break-all">{l.title || 'Open listing'}</a> : (l.title || '—')}
@@ -180,6 +152,12 @@ function Workspace() {
                           {l.price_bsd_estimate != null ? bsd(l.price_bsd_estimate) : '—'}
                         </td>
                         <td className="px-1">{l.seller_rating ?? '—'}</td>
+                        <td className="px-1">
+                          <button type="button" className="text-xs font-semibold text-[#c40000] whitespace-nowrap"
+                            aria-expanded={openView === l.id} onClick={() => setOpenView(openView === l.id ? null : l.id)}>
+                            {openView === l.id ? 'Close' : l.has_photo && l.specs.length ? 'Edit ✓' : 'Set up'}
+                          </button>
+                        </td>
                         <td className="px-1 text-right">
                           {!l.is_chosen && (
                             <button className="text-xs text-slate-400 hover:text-red-600" disabled={busy}
@@ -187,6 +165,10 @@ function Workspace() {
                           )}
                         </td>
                       </tr>
+                      {openView === l.id && (
+                        <tr><td colSpan={8} className="py-3"><ListingCustomerView listing={l} onSaved={load} /></td></tr>
+                      )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -200,6 +182,7 @@ function Workspace() {
                   url: listing.url.trim(), title: listing.title.trim(),
                   price_cny: Number(listing.price_cny), china_shipping_cny: Number(listing.china_shipping_cny) || 0,
                   seller_rating: num(listing.seller_rating), weight_kg: num(listing.weight_kg), notes: listing.notes.trim(),
+                  public_title: '', public_notes: '', specs: [],
                 })
                 setListing(EMPTY_LISTING)
               })
@@ -226,65 +209,21 @@ function Workspace() {
           </Card>
 
           <Card>
-            <h2 className="font-bold text-slate-900 mb-3">Quote builder</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <h2 className="font-bold text-slate-900">Quote builder</h2>
+              {req.options.length > 0 && (
+                <button type="button" className={secondaryBtn} onClick={() => act(() => api.downloadOptionsPdf(req.id))}>Customer PDF</button>
+              )}
+            </div>
             {req.listings.length === 0 ? (
               <p className="text-sm text-slate-500">Add at least one listing first.</p>
             ) : !canQuote ? (
               <p className="text-sm text-slate-500">{approved ? 'The customer approved a quote.' : `This request can't be quoted while its status is “${STATUS_LABELS[req.status]}”.`}</p>
             ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <label className={labelClass} htmlFor="qb-listing">Listing</label>
-                    <select id="qb-listing" className={inputClass} value={qb.listing_id} onChange={e => setQb({ ...qb, listing_id: e.target.value })}>
-                      {req.listings.map(l => <option key={l.id} value={l.id}>{l.platform} · ¥{l.price_cny} {l.title ? `· ${l.title.slice(0, 30)}` : ''}</option>)}
-                    </select>
-                  </div>
-                  {([
-                    ['fx', 'CNY → USD rate', '0.0001'], ['freight', 'Freight cost (BSD)', '0.01'],
-                    ['markup', 'Freight markup %', '1'], ['insurance', 'Insurance (BSD)', '0.01'],
-                    ['fee', 'Service fee %', '0.5'], ['feeMin', 'Min service fee (BSD)', '1'],
-                  ] as const).map(([k, label, step]) => (
-                    <div key={k}>
-                      <label className={labelClass} htmlFor={`qb-${k}`}>{label}</label>
-                      <input id={`qb-${k}`} type="number" min={0} step={step} className={inputClass}
-                        value={qb[k]} onChange={e => setQb({ ...qb, [k]: e.target.value })} />
-                    </div>
-                  ))}
-                  <div className="col-span-2">
-                    <label className={labelClass} htmlFor="qb-msg">Message to customer</label>
-                    <textarea id="qb-msg" rows={2} className={inputClass} placeholder="e.g. Ships by air, about 8 days to Nassau"
-                      value={qb.message} onChange={e => setQb({ ...qb, message: e.target.value })} />
-                  </div>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-4 text-sm">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Customer sees</p>
-                  <ErrorNote message={previewErr} />
-                  {preview && (
-                    <>
-                      <dl className="space-y-1">
-                        {([
-                          ['Product', preview.product_cost_bsd], ['Shipping to address', preview.shipping_bsd],
-                          ['Service fee', preview.service_fee_bsd],
-                        ] as const).map(([l, v]) => (
-                          <div key={l} className="flex justify-between"><dt className="text-slate-600">{l}</dt><dd className="tabular-nums">{bsd(v)}</dd></div>
-                        ))}
-                        <div className="flex justify-between border-t border-slate-200 pt-2 mt-2 font-extrabold text-base">
-                          <dt>Total</dt><dd className="tabular-nums">{bsd(preview.total_bsd)}</dd>
-                        </div>
-                      </dl>
-                      {req.target_price_bsd != null && preview.total_bsd > req.target_price_bsd && (
-                        <p className="text-xs text-amber-700 mt-2">Over the customer's budget of {bsd(req.target_price_bsd)}.</p>
-                      )}
-                      <p className="text-xs font-semibold text-emerald-700 mt-3">Your margin: {bsd(preview.margin_bsd)} <span className="font-normal text-slate-500">(private)</span></p>
-                    </>
-                  )}
-                  <button disabled={busy || !preview || !quoteInput} className={`${primaryBtn} w-full mt-4`}
-                    onClick={() => quoteInput && act(() => api.sendQuote(req.id, quoteInput))}>
-                    {req.quote?.status === 'sent' ? 'Send updated quote' : 'Send quote'}
-                  </button>
-                </div>
-              </div>
+              <>
+                <p className="text-xs text-slate-500 mb-3">Send 1 to 3 options. The customer sees each one next to what they asked for and chooses one.</p>
+                <OptionsBuilder req={req} onSent={load} />
+              </>
             )}
           </Card>
 
@@ -393,7 +332,7 @@ function Workspace() {
               <ul className="text-sm divide-y divide-slate-100">
                 {req.quotes.map(q => (
                   <li key={q.id} className="flex justify-between py-2">
-                    <span>{shortDate(q.created_at)} · <span className="capitalize">{q.status}</span></span>
+                    <span>{shortDate(q.created_at)}{q.option_number ? ` · option ${q.option_number}` : ''} · <span className="capitalize">{q.status}</span></span>
                     <span className="tabular-nums">{bsd(q.total_bsd)} <span className="text-xs text-emerald-700">(+{bsd(q.margin_bsd)})</span></span>
                   </li>
                 ))}

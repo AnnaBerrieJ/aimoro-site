@@ -5,6 +5,8 @@ include supplier listings, CNY prices, FX rate, freight cost or margin.
 """
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -68,6 +70,30 @@ class CustomerQuoteOut(BaseModel):
     expires_at: datetime
 
 
+class SpecRow(BaseModel):
+    """One line of the side-by-side comparison: what the customer asked for vs what we found."""
+    label: str = Field(min_length=1, max_length=60)
+    requested: str = Field(default="", max_length=200)
+    found: str = Field(default="", max_length=200)
+    match: Literal["match", "close", "different"] = "match"
+
+
+class CustomerOptionOut(BaseModel):
+    """A found product as the customer sees it. Never includes supplier, platform, link or CNY price."""
+    id: int  # the quote id; used to choose this option
+    option_number: int
+    title: str
+    notes: str
+    specs: list[SpecRow]
+    has_photo: bool
+    product_cost_bsd: float
+    shipping_bsd: float
+    service_fee_bsd: float
+    total_bsd: float
+    status: str
+    expires_at: datetime
+
+
 class InvoiceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -115,6 +141,7 @@ class RequestOut(BaseModel):
     quote: CustomerQuoteOut | None = None
     invoice: InvoiceOut | None = None
     shipment: CustomerShipmentOut | None = None
+    options: list[CustomerOptionOut] = []
     timeline: list[EventOut] = []
 
 
@@ -129,12 +156,16 @@ class ListingIn(BaseModel):
     seller_rating: float | None = Field(default=None, ge=0, le=5)
     weight_kg: float | None = Field(default=None, ge=0)
     notes: str = ""
+    # customer-facing
+    public_title: str = Field(default="", max_length=120)
+    public_notes: str = Field(default="", max_length=600)
+    specs: list[SpecRow] = Field(default=[], max_length=12)
 
 
 class ListingOut(ListingIn):
-    model_config = ConfigDict(from_attributes=True)
     id: int
     is_chosen: bool
+    has_photo: bool = False
     price_bsd_estimate: float | None = None
     created_at: datetime
 
@@ -150,8 +181,16 @@ class QuoteBuildIn(BaseModel):
     message: str = ""
 
 
+class ProposalIn(BaseModel):
+    """1-3 options sent together. Each option is priced like a single quote."""
+    options: list["QuoteBuildIn"] = Field(min_length=1, max_length=3)
+    message: str = ""
+
+
 class AdminQuoteOut(CustomerQuoteOut):
     listing_id: int | None
+    proposal_no: int | None = None
+    option_number: int | None = None
     fx_cny_usd: float
     freight_cost_bsd: float
     freight_markup_pct: float
@@ -256,3 +295,6 @@ class AdminRequestUpdate(BaseModel):
     status: str | None = None
     admin_notes: str | None = None
     tracking_number: str | None = None
+
+
+ProposalIn.model_rebuild()

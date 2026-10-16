@@ -65,6 +65,16 @@ export interface CustomerShipment {
   shipped_at: string | null; delivered_at: string | null
 }
 
+export type MatchLevel = 'match' | 'close' | 'different'
+export interface SpecRow { label: string; requested: string; found: string; match: MatchLevel }
+
+/** A found product as the customer sees it (never supplier, platform, link or CNY price). */
+export interface CustomerOption {
+  id: number; option_number: number; title: string; notes: string; specs: SpecRow[]; has_photo: boolean
+  product_cost_bsd: number; shipping_bsd: number; service_fee_bsd: number; total_bsd: number
+  status: 'sent' | 'approved' | 'expired' | 'superseded'; expires_at: string
+}
+
 export interface ProductRequest {
   id: number; product_name: string; description: string; reference_url: string
   delivery_address: string; has_photo: boolean; quantity: number; target_price_bsd: number | null
@@ -72,6 +82,7 @@ export interface ProductRequest {
   created_at: string; updated_at: string
   quote: CustomerQuote | null; invoice: Invoice | null
   shipment: CustomerShipment | null
+  options: CustomerOption[]
   timeline: TimelineEvent[]
 }
 
@@ -79,12 +90,17 @@ export interface Listing {
   id: number; platform: Platform; url: string; title: string
   price_cny: number; china_shipping_cny: number
   seller_rating: number | null; weight_kg: number | null; notes: string
+  // customer-facing presentation
+  public_title: string; public_notes: string; specs: SpecRow[]; has_photo: boolean
   is_chosen: boolean; price_bsd_estimate: number | null; created_at: string
 }
 
-export type ListingInput = Omit<Listing, 'id' | 'is_chosen' | 'price_bsd_estimate' | 'created_at'>
+export type ListingInput = Omit<Listing, 'id' | 'is_chosen' | 'price_bsd_estimate' | 'created_at' | 'has_photo'>
+
+export const MATCH_LABELS: Record<MatchLevel, string> = { match: 'Match', close: 'Close', different: 'Different' }
 
 export interface AdminQuote extends CustomerQuote {
+  proposal_no: number | null; option_number: number | null
   listing_id: number | null; fx_cny_usd: number
   freight_cost_bsd: number; freight_markup_pct: number; insurance_bsd: number
   service_fee_pct: number; service_fee_min_bsd: number; margin_bsd: number
@@ -201,8 +217,18 @@ export const uploadPhoto = (id: number, file: File) => {
 }
 export const myRequests = () => request<ProductRequest[]>('/requests')
 export const getRequest = (id: number) => request<ProductRequest>(`/requests/${id}`)
-export const approveQuote = (id: number) =>
-  request<ProductRequest>(`/requests/${id}/approve`, { method: 'POST' })
+export const approveQuote = (id: number, quoteId?: number) =>
+  request<ProductRequest>(`/requests/${id}/approve${quoteId ? `?quote_id=${quoteId}` : ''}`, { method: 'POST' })
+export const optionPhotoPath = (requestId: number, quoteId: number) => `/requests/${requestId}/options/${quoteId}/photo`
+
+export async function downloadOptionsPdf(requestId: number) {
+  const url = await fetchFileUrl(`/requests/${requestId}/options.pdf`)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `AIMORO-options-request-${requestId}.pdf`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
+}
 export const cancelRequest = (id: number) =>
   request<ProductRequest>(`/requests/${id}/cancel`, { method: 'POST' })
 export const paymentConfig = () =>
@@ -239,6 +265,18 @@ export const adminRequests = (status?: string) =>
 export const adminRequest = (id: number) => request<AdminRequest>(`/admin/requests/${id}`)
 export const adminUpdateRequest = (id: number, body: Partial<Pick<AdminRequest, 'status' | 'admin_notes' | 'tracking_number'>>) =>
   request<AdminRequest>(`/admin/requests/${id}`, { method: 'PATCH', body: json(body) })
+export const updateListing = (id: number, body: ListingInput) =>
+  request<Listing>(`/admin/listings/${id}`, { method: 'PATCH', body: json(body) })
+export const uploadListingPhoto = (id: number, file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  return request<Listing>(`/admin/listings/${id}/photo`, { method: 'POST', body: form })
+}
+export const listingPhotoPath = (listingId: number) => `/admin/listings/${listingId}/photo`
+export const previewProposal = (requestId: number, options: QuoteBuildInput[]) =>
+  request<(QuotePreview & { listing_id: number })[]>(`/admin/requests/${requestId}/proposal/preview`, { method: 'POST', body: json({ options }) })
+export const sendProposal = (requestId: number, options: QuoteBuildInput[], message: string) =>
+  request<AdminQuote[]>(`/admin/requests/${requestId}/proposal`, { method: 'POST', body: json({ options, message }) })
 export const addListing = (requestId: number, body: ListingInput) =>
   request<Listing>(`/admin/requests/${requestId}/listings`, { method: 'POST', body: json(body) })
 export const deleteListing = (id: number) =>

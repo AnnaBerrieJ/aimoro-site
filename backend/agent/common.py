@@ -1,12 +1,15 @@
 """Shared helpers: ownership checks and customer-safe serialization."""
+import json
 import os
+import uuid
 from datetime import datetime, timezone
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from .models import ProductRequest, Quote, User
-from .schemas import CustomerQuoteOut, CustomerShipmentOut, EventOut, InvoiceOut, RequestOut
+from .models import ProductRequest, Quote, SupplierListing, User
+from .schemas import (CustomerOptionOut, CustomerQuoteOut, CustomerShipmentOut, EventOut, InvoiceOut,
+                      RequestOut, SpecRow)
 
 UPLOAD_DIR = os.getenv(
     "UPLOAD_DIR",
@@ -23,13 +26,71 @@ def is_expired(quote: Quote) -> bool:
     return aware(quote.expires_at) < datetime.now(timezone.utc)
 
 
-def current_quote(req: ProductRequest) -> Quote | None:
-    """The quote the customer should see: approved first, else newest sent."""
+ALLOWED_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+MAX_PHOTO_BYTES = 8 * 1024 * 1024
+
+
+async def save_photo(file: UploadFile, prefix: str) -> str:
+    """Validate and store an uploaded image; returns the stored file name."""
+    ext = ALLOWED_IMAGE_TYPES.get(file.content_type or "")
+    if ext is None:
+        raise HTTPException(400, "Photo must be a JPG, PNG or WebP file")
+    data = await file.read(MAX_PHOTO_BYTES + 1)
+    if len(data) > MAX_PHOTO_BYTES:
+        raise HTTPException(400, "Photo must be under 8 MB")
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    name = f"{prefix}_{uuid.uuid4().hex}{ext}"
+    with open(os.path.join(UPLOAD_DIR, name), "wb") as fh:
+        fh.write(data)
+    return name
+
+
+def upload_path(name: str) -> str:
+    return os.path.join(UPLOAD_DIR, os.path.basename(name))
+
+
+def parse_specs(listing: SupplierListing | None) -> list[SpecRow]:
+    if listing is None or not listing.specs_json:
+        return []
+    try:
+        return [SpecRow(**row) for row in json.loads(listing.specs_json)]
+    except (ValueError, TypeError):
+        return []
+
+
+def active_options(req: ProductRequest) -> list[Quote]:
+    """The options the customer is looking at: the approved one, else the latest sent proposal."""
     approved = [q for q in req.quotes if q.status == "approved"]
     if approved:
-        return approved[-1]
-    sent = sorted((q for q in req.quotes if q.status == "sent"), key=lambda q: q.id)
-    return sent[-1] if sent else None
+        return approved[-1:]
+    sent = [q for q in req.quotes if q.status == "sent"]
+    return sorted(sent, key=lambda q: (q.option_number or 1, q.id))
+
+
+def current_quote(req: ProductRequest) -> Quote | None:
+    """The single quote shown in summaries: the approved one, else option 1 of the latest proposal."""
+    opts = active_options(req)
+    return opts[0] if opts else None
+
+
+def option_out(req: ProductRequest, q: Quote) -> CustomerOptionOut:
+    listing = q.listing
+    status = "expired" if q.status == "sent" and is_expired(q) else q.status
+    return CustomerOptionOut(
+        id=q.id,
+        option_number=q.option_number or 1,
+        # Fall back to the customer's own wording, never the supplier's listing title.
+        title=((listing.public_title if listing else None) or req.product_name).strip(),
+        notes=((listing.public_notes if listing else None) or "").strip(),
+        specs=parse_specs(listing),
+        has_photo=bool(listing and listing.photo_path),
+        product_cost_bsd=q.product_cost_bsd,
+        shipping_bsd=q.shipping_bsd,
+        service_fee_bsd=q.service_fee_bsd,
+        total_bsd=q.total_bsd,
+        status=status,
+        expires_at=q.expires_at,
+    )
 
 
 def get_request_for(db: Session, request_id: int, user: User) -> ProductRequest:
@@ -69,5 +130,6 @@ def to_customer(req: ProductRequest) -> RequestOut:
         quote=quote_out,
         invoice=invoice_out,
         shipment=CustomerShipmentOut.model_validate(req.shipment) if req.shipment else None,
+        options=[option_out(req, o) for o in active_options(req)],
         timeline=[EventOut.model_validate(e) for e in req.events if e.customer_visible],
     )
