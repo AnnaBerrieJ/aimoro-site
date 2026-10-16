@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
 import { Card, primaryBtn, secondaryBtn } from '@/components/agent/ui'
+import { CONTACT_EMAIL } from '@/lib/agent'
 
 const STEPS = [
   { n: '1', title: 'Tell us what you want', body: 'Describe the product, add a photo or a link, and say how many you need.' },
@@ -61,6 +62,13 @@ export default function HomePage() {
       <Card>
         <h2 className="font-bold text-slate-900 mb-1">What we can't ship</h2>
         <p className="text-sm text-slate-600">Branded replicas, batteries, liquids, weapons or weapon parts, and other restricted items.</p>
+      </Card>
+
+      <Card>
+        <h2 className="font-bold text-slate-900 mb-1">Questions?</h2>
+        <p className="text-sm text-slate-600">
+          Email us at <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-[#c40000] underline">{CONTACT_EMAIL}</a>
+        </p>
       </Card>
     </div>
   )

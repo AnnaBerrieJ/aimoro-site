@@ -3,7 +3,10 @@ from fpdf import FPDF
 
 from .models import Invoice
 
+import os
+
 BUSINESS_NAME = "AIMORO"
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "aimoroinfo@gmail.com")
 
 
 def _money(x: float) -> str:
@@ -23,6 +26,7 @@ def build_invoice_pdf(invoice: Invoice) -> bytes:
     pdf.cell(0, 10, BUSINESS_NAME, new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(0, 5, "Sourcing and shipping from China to The Bahamas", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, f"aimoro.co  |  {CONTACT_EMAIL}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(6)
 
     pdf.set_font("Helvetica", "B", 14)

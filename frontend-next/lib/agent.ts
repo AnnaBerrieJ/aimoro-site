@@ -3,6 +3,8 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000'
 const TOKEN_KEY = 'aimoro_token'
 
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'aimoroinfo@gmail.com'
+
 export type RequestStatus =
   | 'received' | 'sourcing' | 'quote_ready' | 'paid'
   | 'ordered' | 'shipped' | 'delivered' | 'cancelled'

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
 import { useAuth } from './AuthProvider'
+import { CONTACT_EMAIL } from '@/lib/agent'
 
 const AGENT_ITEMS = [
   {
@@ -107,6 +108,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-white/5 space-y-3">
+          <a href={`mailto:${CONTACT_EMAIL}`} className="block text-[11px] text-slate-400 hover:text-white truncate">{CONTACT_EMAIL}</a>
           {/* Account */}
           {user ? (
             <div className="flex items-center justify-between gap-2">

@@ -19,6 +19,7 @@ from .db import SessionLocal
 from .models import Notification, ProductRequest, RequestEvent
 
 SITE_URL = os.getenv("SITE_URL", "http://localhost:3000").rstrip("/")
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "aimoroinfo@gmail.com")
 
 
 def add_event(db: Session, req: ProductRequest, kind: str, message: str, visible: bool = True) -> RequestEvent:
@@ -32,7 +33,8 @@ def _request_link(req: ProductRequest) -> str:
 
 
 def _email_body(name: str, message: str, link: str) -> str:
-    return f"Hi {name},\n\n{message}\n\nView your request: {link}\n\n— AIMORO"
+    return (f"Hi {name},\n\n{message}\n\nView your request: {link}\n\n"
+            f"Questions? Reply to this email or write to {CONTACT_EMAIL}.\n\n— AIMORO")
 
 
 def notify_customer(db: Session, background: BackgroundTasks | None, req: ProductRequest,
@@ -83,7 +85,7 @@ def deliver(notification_id: int) -> None:
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {os.environ['RESEND_API_KEY']}"},
                     json={"from": os.environ["EMAIL_FROM"], "to": [n.to_address],
-                          "subject": n.subject, "text": n.body},
+                          "subject": n.subject, "text": n.body, "reply_to": CONTACT_EMAIL},
                     timeout=10,
                 )
                 resp.raise_for_status()
