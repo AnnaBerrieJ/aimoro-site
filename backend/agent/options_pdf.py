@@ -183,7 +183,7 @@ def _option(pdf: FPDF, req: ProductRequest, q: Quote, single: bool, photo_h: flo
     W = pdf.w - 2 * L
     o = option_out(req, q)
     if len(o.specs) > 8:  # long comparisons: smaller photos so the option fits on one page
-        photo_h = min(photo_h, 46)
+        photo_h = min(photo_h, 40 if (o.notes and not preview) else 46)
 
     # Title bar
     pdf.set_fill_color(*NAVY)
