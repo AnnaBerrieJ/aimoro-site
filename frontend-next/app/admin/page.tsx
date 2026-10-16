@@ -25,7 +25,7 @@ function AdminQueue() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <PageHeader title="Request queue" subtitle={`${needsAction} need action: new, sourcing, or paid and waiting to be ordered.`} />
+      <PageHeader title="Request queue" subtitle={`${needsAction} ${needsAction === 1 ? 'request needs' : 'requests need'} action: new, being sourced, or paid and waiting to be ordered.`} />
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
         {FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)}

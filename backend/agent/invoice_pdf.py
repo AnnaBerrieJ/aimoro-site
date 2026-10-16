@@ -45,7 +45,7 @@ def build_invoice_pdf(invoice: Invoice) -> bytes:
     pdf.ln(4)
 
     pdf.set_font("Helvetica", "B", 10)
-    pdf.multi_cell(0, 5, f"Order: {req.product_name} (qty {req.quantity}) - request #{req.id}",
+    pdf.multi_cell(0, 5, f"Order: {req.product_name} (quantity {req.quantity}), request #{req.id}",
                    new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
 

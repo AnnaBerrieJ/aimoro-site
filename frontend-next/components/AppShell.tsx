@@ -2,11 +2,19 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
+import { MarketingShell } from './MarketingShell'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
 
+// Public pages get a website layout (top menu + footer); the signed-in app keeps the sidebar.
+const PUBLIC_PATHS = ['/', '/login', '/signup', '/terms', '/privacy']
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const pathname = usePathname()
+
+  if (PUBLIC_PATHS.includes(pathname)) return <MarketingShell>{children}</MarketingShell>
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">

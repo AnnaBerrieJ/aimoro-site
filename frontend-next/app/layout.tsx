@@ -4,10 +4,23 @@ import { AppShell } from '@/components/AppShell'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { AuthProvider } from '@/components/AuthProvider'
 
+const DESCRIPTION = 'Personal shopping and delivery for The Bahamas. Tell us what you want, get one price in BSD, and we deliver it to your door.'
+
 export const metadata: Metadata = {
-  title: 'AIMORO · China to The Bahamas',
-  description: 'Tell us what you want from China. We find it, quote one price, and deliver it to your address in The Bahamas.',
+  metadataBase: new URL('https://aimoro.co'),
+  title: 'AIMORO · Anything you want, delivered to your door in The Bahamas',
+  description: DESCRIPTION,
   manifest: '/manifest.json',
+  icons: { icon: '/favicon.png', apple: '/favicon.png' },
+  openGraph: {
+    type: 'website',
+    url: 'https://aimoro.co',
+    siteName: 'AIMORO',
+    title: 'AIMORO · Anything you want, delivered to your door',
+    description: DESCRIPTION,
+    images: [{ url: '/AimoroLogo.png', width: 500, height: 500, alt: 'AIMORO' }],
+  },
+  twitter: { card: 'summary', title: 'AIMORO', description: DESCRIPTION, images: ['/AimoroLogo.png'] },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -61,7 +61,7 @@ async def upload_photo(request_id: int, file: UploadFile = File(...),
     req = get_request_for(db, request_id, user)
     ext = ALLOWED_IMAGE_TYPES.get(file.content_type or "")
     if ext is None:
-        raise HTTPException(400, "Photo must be JPG, PNG or WEBP")
+        raise HTTPException(400, "Photo must be a JPG, PNG or WebP file")
     data = await file.read(MAX_PHOTO_BYTES + 1)
     if len(data) > MAX_PHOTO_BYTES:
         raise HTTPException(400, "Photo must be under 8 MB")
@@ -149,9 +149,9 @@ def payment_config():
 def start_checkout(invoice_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     inv = _invoice_for(db, invoice_id, user)
     if inv.status == "paid":
-        raise HTTPException(400, "Invoice already paid")
+        raise HTTPException(400, "This invoice has already been paid")
     if not payments.stripe_enabled():
-        raise HTTPException(400, "Card payments aren't set up yet; please pay by bank transfer")
+        raise HTTPException(400, "Card payments aren't available yet. Please pay by bank transfer.")
     site = os.getenv("SITE_URL", "http://localhost:3000").rstrip("/")
     req_id = inv.quote.request_id
     session = payments.create_checkout_session(
@@ -172,10 +172,10 @@ def confirm_payment(invoice_id: int, background: BackgroundTasks, session_id: st
     req = inv.quote.request
     if inv.status != "paid":
         if not payments.stripe_enabled():
-            raise HTTPException(400, "Card payments aren't set up")
+            raise HTTPException(400, "Card payments aren't available yet")
         session = payments.get_checkout_session(session_id)
         if session.get("payment_status") != "paid" or session.get("client_reference_id") != str(inv.id):
-            raise HTTPException(400, "Payment not completed yet")
+            raise HTTPException(400, "Your payment hasn't gone through yet")
         mark_invoice_paid(db, background, inv, f"stripe:{session_id}")
         db.commit()
     return to_customer(req)

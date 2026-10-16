@@ -21,6 +21,15 @@ router = APIRouter(prefix="/admin", tags=["operations"], dependencies=[Depends(r
 METHOD_LABELS = {"courier": "express courier", "air": "air freight", "sea": "sea freight"}
 
 
+def _pretty_date(iso: str) -> str:
+    """2026-10-20 -> October 20, 2026 (falls back to the raw text)."""
+    try:
+        d = datetime.strptime(iso, "%Y-%m-%d")
+        return f"{d:%B} {d.day}, {d.year}"
+    except ValueError:
+        return iso
+
+
 def _now():
     return datetime.now(timezone.utc)
 
@@ -79,12 +88,12 @@ def _get_shipment(db: Session, shipment_id: int) -> Shipment:
 
 def _check_fields(body: ShipmentIn):
     if body.method not in SHIPMENT_METHODS:
-        raise HTTPException(400, f"method must be one of {SHIPMENT_METHODS}")
+        raise HTTPException(400, f"Method must be one of: {', '.join(SHIPMENT_METHODS)}")
     if body.eta:
         try:
             datetime.strptime(body.eta, "%Y-%m-%d")
         except ValueError:
-            raise HTTPException(400, "eta must be YYYY-MM-DD")
+            raise HTTPException(400, "The estimated arrival date must be in YYYY-MM-DD format")
 
 
 @router.get("/ready-to-ship", response_model=list[ShipmentRequestBrief])
@@ -165,17 +174,17 @@ def advance_shipment(shipment_id: int, body: ShipmentStatusIn, background: Backg
                      db: Session = Depends(get_db)):
     s = _get_shipment(db, shipment_id)
     if body.status not in SHIPMENT_STATUSES:
-        raise HTTPException(400, f"status must be one of {SHIPMENT_STATUSES}")
+        raise HTTPException(400, f"Status must be one of: {', '.join(SHIPMENT_STATUSES)}")
     cur, new = SHIPMENT_STATUSES.index(s.status), SHIPMENT_STATUSES.index(body.status)
     if new != cur + 1:
         nxt = SHIPMENT_STATUSES[cur + 1] if cur + 1 < len(SHIPMENT_STATUSES) else None
-        raise HTTPException(400, f"Next step is {nxt}" if nxt else "Shipment is already delivered")
+        raise HTTPException(400, f"The next step is {nxt}" if nxt else "This shipment has already been delivered")
     if not s.requests:
         raise HTTPException(400, "Add at least one request to the shipment first")
 
     how = METHOD_LABELS.get(s.method, s.method)
     track = f" Tracking: {s.carrier} {s.tracking_number}".rstrip() + "." if s.tracking_number else ""
-    eta = f" Estimated arrival {s.eta}." if s.eta else ""
+    eta = f" Estimated arrival: {_pretty_date(s.eta)}." if s.eta else ""
 
     s.status = body.status
     if body.status == "in_transit":

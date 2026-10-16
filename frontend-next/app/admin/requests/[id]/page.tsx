@@ -230,7 +230,7 @@ function Workspace() {
             {req.listings.length === 0 ? (
               <p className="text-sm text-slate-500">Add at least one listing first.</p>
             ) : !canQuote ? (
-              <p className="text-sm text-slate-500">{approved ? 'The customer approved a quote.' : `Can't quote a ${STATUS_LABELS[req.status].toLowerCase()} request.`}</p>
+              <p className="text-sm text-slate-500">{approved ? 'The customer approved a quote.' : `This request can't be quoted while its status is “${STATUS_LABELS[req.status]}”.`}</p>
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-2">

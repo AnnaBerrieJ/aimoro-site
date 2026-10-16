@@ -86,7 +86,7 @@ function NewRequestForm() {
           </div>
           <ErrorNote message={error} />
           <button type="submit" disabled={busy} className={`${primaryBtn} w-full`}>{busy ? 'Sending…' : 'Send request'}</button>
-          <p className="text-xs text-slate-500">Your quote covers the product, shipping to this address and our service fee. We can't ship branded replicas, batteries, liquids or restricted items.</p>
+          <p className="text-xs text-slate-500">Your quote covers the product, shipping to this address and our service fee. We can't ship batteries, liquids or other restricted items.</p>
         </form>
       </Card>
     </div>

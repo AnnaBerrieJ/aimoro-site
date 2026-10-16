@@ -25,7 +25,7 @@ function SignupForm() {
       const user = await signup(form)
       router.replace(next || (user.role === 'admin' ? '/admin' : '/my-requests/new'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign up failed')
+      setError(err instanceof Error ? err.message : 'Sign-up failed')
     } finally { setBusy(false) }
   }
 
@@ -63,6 +63,9 @@ function SignupForm() {
           </div>
           <ErrorNote message={error} />
           <button type="submit" disabled={busy} className={`${primaryBtn} w-full`}>{busy ? 'Creating account…' : 'Create account'}</button>
+          <p className="text-xs text-slate-500 text-center">
+            By creating an account you agree to our <Link href="/terms" className="underline">Terms of Service</Link> and <Link href="/privacy" className="underline">Privacy Policy</Link>.
+          </p>
         </form>
       </Card>
       <p className="text-sm text-slate-500 mt-4 text-center">

@@ -84,7 +84,7 @@ def update_request(request_id: int, body: AdminRequestUpdate, db: Session = Depe
     req = _get_req(db, request_id)
     if body.status is not None and body.status != req.status:
         if body.status not in REQUEST_STATUSES:
-            raise HTTPException(400, f"status must be one of {REQUEST_STATUSES}")
+            raise HTTPException(400, f"Status must be one of: {', '.join(REQUEST_STATUSES)}")
         add_event(db, req, "status", f"Status changed from {req.status} to {body.status} by admin.", visible=False)
         req.status = body.status
     if body.admin_notes is not None:
@@ -99,7 +99,7 @@ def update_request(request_id: int, body: AdminRequestUpdate, db: Session = Depe
 def add_listing(request_id: int, body: ListingIn, db: Session = Depends(get_db)):
     req = _get_req(db, request_id)
     if body.platform not in PLATFORMS:
-        raise HTTPException(400, f"platform must be one of {PLATFORMS}")
+        raise HTTPException(400, f"Platform must be one of: {', '.join(PLATFORMS)}")
     listing = SupplierListing(request_id=req.id, **body.model_dump())
     db.add(listing)
     if req.status == "received":
@@ -115,7 +115,7 @@ def update_listing(listing_id: int, body: ListingIn, db: Session = Depends(get_d
     if listing is None:
         raise HTTPException(404, "Listing not found")
     if body.platform not in PLATFORMS:
-        raise HTTPException(400, f"platform must be one of {PLATFORMS}")
+        raise HTTPException(400, f"Platform must be one of: {', '.join(PLATFORMS)}")
     for k, v in body.model_dump().items():
         setattr(listing, k, v)
     db.commit()
@@ -168,7 +168,7 @@ def preview_quote(request_id: int, body: QuoteBuildIn, db: Session = Depends(get
 def send_quote(request_id: int, body: QuoteBuildIn, background: BackgroundTasks, db: Session = Depends(get_db)):
     req = _get_req(db, request_id)
     if req.status not in {"received", "sourcing", "quote_ready"}:
-        raise HTTPException(400, f"Can't quote a request that is {req.status}")
+        raise HTTPException(400, f"This request can't be quoted while its status is {req.status}")
     if any(q.status == "approved" for q in req.quotes):
         raise HTTPException(400, "The customer already approved a quote")
     listing, inputs = _inputs(req, body, db)
@@ -199,7 +199,7 @@ def send_quote(request_id: int, body: QuoteBuildIn, background: BackgroundTasks,
     )
     db.add(quote)
     req.status = "quote_ready"
-    msg = f"Your quote is ready: ${b.total_bsd:,.2f} BSD all-in, valid for {QUOTE_VALID_DAYS} days."
+    msg = f"Your quote is ready: ${b.total_bsd:,.2f} BSD. It is valid for {QUOTE_VALID_DAYS} days."
     add_event(db, req, "quote", msg)
     notify_customer(db, background, req, "Your quote is ready", msg)
     db.commit()
