@@ -20,12 +20,30 @@ function AdminQueue() {
     api.adminRequests(filter === 'all' ? undefined : filter).then(setRows).catch(e => setError(e.message))
   }, [filter])
   useEffect(() => { api.adminSummary().then(setCounts).catch(() => {}) }, [])
+  const [drafts, setDrafts] = useState<api.EmailDraftBrief[]>([])
+  useEffect(() => { api.emailDrafts().then(setDrafts).catch(() => {}) }, [])
 
   const needsAction = (counts.received ?? 0) + (counts.sourcing ?? 0) + (counts.paid ?? 0)
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <PageHeader title="Request queue" subtitle={`${needsAction} ${needsAction === 1 ? 'request needs' : 'requests need'} action: new, being sourced, or paid and waiting to be ordered.`} />
+      {drafts.length > 0 && (
+        <Card className="!p-4 mb-4 border-2 border-amber-200 bg-amber-50/60">
+          <p className="text-sm font-bold text-amber-900 mb-2">
+            {drafts.length} customer {drafts.length === 1 ? 'email is' : 'emails are'} waiting for your review
+          </p>
+          <ul className="space-y-1 text-sm">
+            {drafts.map(d => (
+              <li key={d.id}>
+                <Link href={`/admin/requests/${d.request_id}#emails`} className="text-slate-800 hover:text-[#c40000]">
+                  <span className="font-semibold">#{d.request_id} · {d.customer_name}</span> · {d.subject}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
         {FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)}

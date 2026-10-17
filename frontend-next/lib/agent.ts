@@ -108,10 +108,19 @@ export interface AdminQuote extends CustomerQuote {
 
 export interface AdminEvent extends TimelineEvent { customer_visible: boolean }
 
+export type AttachmentKind = 'options_preview' | 'options_full' | 'invoice'
+export const ATTACHMENT_LABELS: Record<AttachmentKind, string> = {
+  options_preview: 'Options PDF (preview, blurred)', options_full: 'Options PDF (full report)', invoice: 'Invoice PDF',
+}
+
 export interface NotificationLog {
   id: number; to_address: string; subject: string; body: string
-  status: 'queued' | 'sent' | 'skipped' | 'failed'; error: string; created_at: string
+  status: 'draft' | 'queued' | 'sent' | 'skipped' | 'failed' | 'discarded'; error: string
+  attachments: AttachmentKind[]; created_at: string; sent_at: string | null
 }
+
+export interface EmailTemplate { key: string; label: string; subject: string; body: string; attachments: AttachmentKind[] }
+export interface EmailDraftBrief { id: number; request_id: number; product_name: string; customer_name: string; subject: string; created_at: string }
 
 export interface AdminRequest extends ProductRequest {
   admin_notes: string
@@ -277,6 +286,15 @@ export const previewProposal = (requestId: number, options: QuoteBuildInput[]) =
   request<(QuotePreview & { listing_id: number })[]>(`/admin/requests/${requestId}/proposal/preview`, { method: 'POST', body: json({ options }) })
 export const sendProposal = (requestId: number, options: QuoteBuildInput[], message: string) =>
   request<AdminQuote[]>(`/admin/requests/${requestId}/proposal`, { method: 'POST', body: json({ options, message }) })
+export const emailTemplates = (requestId: number) => request<EmailTemplate[]>(`/admin/requests/${requestId}/email-templates`)
+export const createEmail = (requestId: number, body: { subject: string; body: string; attachments: AttachmentKind[]; send: boolean }) =>
+  request<NotificationLog>(`/admin/requests/${requestId}/emails`, { method: 'POST', body: json(body) })
+export const updateEmail = (id: number, body: { subject?: string; body?: string; attachments?: AttachmentKind[] }) =>
+  request<NotificationLog>(`/admin/notifications/${id}`, { method: 'PATCH', body: json(body) })
+export const sendEmail = (id: number) => request<NotificationLog>(`/admin/notifications/${id}/send`, { method: 'POST' })
+export const discardEmail = (id: number) => request<NotificationLog>(`/admin/notifications/${id}/discard`, { method: 'POST' })
+export const previewEmail = (body: string) => request<{ html: string }>('/admin/emails/preview', { method: 'POST', body: json({ body }) })
+export const emailDrafts = () => request<EmailDraftBrief[]>('/admin/email-drafts')
 export const addListing = (requestId: number, body: ListingInput) =>
   request<Listing>(`/admin/requests/${requestId}/listings`, { method: 'POST', body: json(body) })
 export const deleteListing = (id: number) =>

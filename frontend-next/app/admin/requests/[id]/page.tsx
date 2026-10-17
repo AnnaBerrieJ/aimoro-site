@@ -10,6 +10,7 @@ import { PLATFORMS, REQUEST_STATUS_OPTIONS, SHIPMENT_LABELS, STATUS_LABELS, bsd,
 import { Timeline } from '@/components/agent/Timeline'
 import { ListingCustomerView } from '@/components/agent/ListingCustomerView'
 import { OptionsBuilder } from '@/components/agent/OptionsBuilder'
+import { EmailCenter } from '@/components/agent/EmailCenter'
 
 const EMPTY_LISTING = { platform: 'taobao', url: '', title: '', price_cny: '', china_shipping_cny: '', seller_rating: '', weight_kg: '', notes: '' }
 
@@ -25,6 +26,7 @@ function Workspace() {
   const id = Number(useParams<{ id: string }>().id)
   const [req, setReq] = useState<api.AdminRequest | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [photoVersion, setPhotoVersion] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [listing, setListing] = useState(EMPTY_LISTING)
@@ -37,7 +39,6 @@ function Workspace() {
   const [payRef, setPayRef] = useState('bank transfer')
   const [orderNo, setOrderNo] = useState('')
   const [whNotes, setWhNotes] = useState('')
-  const [showNotes, setShowNotes] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -54,7 +55,7 @@ function Workspace() {
     let url: string | null = null
     api.fetchFileUrl(`/requests/${req.id}/photo`).then(u => { url = u; setPhotoUrl(u) }).catch(() => {})
     return () => { if (url) URL.revokeObjectURL(url) }
-  }, [req?.id, req?.has_photo])
+  }, [req?.id, req?.has_photo, photoVersion])
 
   async function act(fn: () => Promise<unknown>) {
     setBusy(true); setError(null)
@@ -76,6 +77,11 @@ function Workspace() {
         <StatusBadge status={req.status} />
       </div>
       <ErrorNote message={error} />
+      {req.notifications.some(n => n.status === 'draft' && n.to_address === req.customer.email) && (
+        <a href="#emails" className="block rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+          An email to {req.customer.name} is waiting for your review. Edit and send it ↓
+        </a>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-4">
         {/* Request + customer */}
@@ -90,6 +96,13 @@ function Workspace() {
               <div><dt className="inline text-slate-500">Received: </dt><dd className="inline">{shortDate(req.created_at)}</dd></div>
             </dl>
             {photoUrl && <img src={photoUrl} alt="Customer photo" className="mt-3 max-h-56 rounded-xl border border-slate-100" />}
+            <label className={`${secondaryBtn} mt-3 w-full cursor-pointer !py-2 text-xs`}>
+              {req.has_photo ? 'Replace "what they asked for" photo' : 'Add "what they asked for" photo'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={busy}
+                onChange={e => { const f = e.target.files?.[0]; e.target.value = ''
+                  if (f) act(async () => { await api.uploadPhoto(req.id, f); setPhotoVersion(v => v + 1) }) }} />
+            </label>
+            <p className="text-[11px] text-slate-500 mt-1">Shown to the customer and in the PDF next to each option you found.</p>
             <div className="flex flex-wrap gap-2 mt-3">
               {searchLinks(req.product_name).map(([label, href]) => (
                 <a key={label} href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold px-2.5 py-1 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50">Search {label} ↗</a>
@@ -304,27 +317,7 @@ function Workspace() {
             ) : null} />
           </Card>
 
-          {req.notifications.length > 0 && (
-            <Card>
-              <button className="w-full flex justify-between items-center" onClick={() => setShowNotes(v => !v)}>
-                <h2 className="font-bold text-slate-900">Emails ({req.notifications.length})</h2>
-                <span className="text-xs text-slate-500">{showNotes ? 'Hide' : 'Show'}</span>
-              </button>
-              {showNotes && (
-                <ul className="mt-3 divide-y divide-slate-100 text-sm">
-                  {req.notifications.map(n => (
-                    <li key={n.id} className="py-2">
-                      <div className="flex justify-between gap-2">
-                        <span className="font-semibold text-slate-800">{n.subject}</span>
-                        <span className={`text-xs font-semibold ${n.status === 'sent' ? 'text-emerald-700' : n.status === 'failed' ? 'text-red-600' : 'text-slate-400'}`}>{n.status}</span>
-                      </div>
-                      <p className="text-xs text-slate-500">{n.to_address} · {dateTime(n.created_at)}{n.error ? ` · ${n.error}` : ''}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-          )}
+          <EmailCenter req={req} onChanged={load} />
 
           {req.quotes.length > 0 && (
             <Card>

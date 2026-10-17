@@ -3,6 +3,7 @@
 Customer-facing models (RequestOut, CustomerQuoteOut, InvoiceOut) must never
 include supplier listings, CNY prices, FX rate, freight cost or margin.
 """
+import json
 from datetime import datetime
 
 from typing import Literal
@@ -222,6 +223,55 @@ class NotificationOut(BaseModel):
     body: str
     status: str
     error: str
+    attachments: list[str] = []
+    created_at: datetime
+    sent_at: datetime | None = None
+
+    @field_validator("attachments", mode="before")
+    @classmethod
+    def _parse_attachments(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except ValueError:
+                return []
+        return v or []
+
+
+AttachmentKind = Literal["options_preview", "options_full", "invoice"]
+
+
+class EmailIn(BaseModel):
+    subject: str = Field(min_length=1, max_length=255)
+    body: str = Field(min_length=1, max_length=20000)
+    attachments: list[AttachmentKind] = []
+    send: bool = False
+
+
+class EmailUpdate(BaseModel):
+    subject: str | None = Field(default=None, min_length=1, max_length=255)
+    body: str | None = Field(default=None, min_length=1, max_length=20000)
+    attachments: list[AttachmentKind] | None = None
+
+
+class EmailTemplateOut(BaseModel):
+    key: str
+    label: str
+    subject: str
+    body: str
+    attachments: list[str] = []
+
+
+class EmailPreviewIn(BaseModel):
+    body: str = Field(max_length=20000)
+
+
+class EmailDraftBrief(BaseModel):
+    id: int
+    request_id: int
+    product_name: str
+    customer_name: str
+    subject: str
     created_at: datetime
 
 

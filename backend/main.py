@@ -8,6 +8,7 @@ from suppliers import suppliers
 from database import create_tables, save_supplier_to_db, get_saved_suppliers, delete_saved_supplier
 from agent.db import init_db
 from agent.routers import admin as agent_admin, auth as agent_auth, customer as agent_customer, operations as agent_ops
+from agent.routers import emails as agent_emails
 
 app = FastAPI(title="Aimoro Smart Sourcing System")
 create_tables()
@@ -18,6 +19,7 @@ app.include_router(agent_auth.router)
 app.include_router(agent_customer.router)
 app.include_router(agent_admin.router)
 app.include_router(agent_ops.router)
+app.include_router(agent_emails.router)
 
 # --- ML ranking model -------------------------------------------------
 # Trained by backend/ml/train_model.py on backend/ml/supplier_training_data.csv.

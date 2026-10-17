@@ -8,12 +8,16 @@ slow mail API never delays the page.
 WhatsApp: the admin page builds a wa.me link with the same message text,
 so Ashley can forward any update in one tap.
 """
+import base64
 import html
+import json
 import os
 import re
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import BackgroundTasks
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .auth import admin_emails
@@ -26,6 +30,11 @@ CONTACT_WHATSAPP = os.getenv("CONTACT_WHATSAPP", "+1 281-673-6703")
 EMAIL_LOGO_URL = os.getenv("EMAIL_LOGO_URL", f"{SITE_URL}/email-logo.png")
 SIGNATURE_TEXT = (f"AIMORO\n{SITE_URL.split('://')[-1]} | {CONTACT_EMAIL} | WhatsApp {CONTACT_WHATSAPP}\n"
                   "You tell us what you want. We find it and deliver it to your door.")
+
+
+def email_review_on() -> bool:
+    """When on (default), customer emails are saved as drafts for Ashley to edit and send."""
+    return os.getenv("EMAIL_REVIEW", "on").strip().lower() not in ("off", "0", "false", "no")
 
 
 def add_event(db: Session, req: ProductRequest, kind: str, message: str, visible: bool = True) -> RequestEvent:
@@ -50,7 +59,33 @@ def notify_customer(db: Session, background: BackgroundTasks | None, req: Produc
         user_id=user.id, request_id=req.id, channel="email", to_address=user.email,
         subject=f"{subject} · {req.product_name}",
         body=_email_body(user.name.split(" ")[0] or user.name, message, _request_link(req)),
+        status="draft" if email_review_on() else "queued",
     )
+    db.add(n)
+    db.flush()
+    if background is not None and n.status == "queued":
+        background.add_task(deliver, n.id)
+    return n
+
+
+def send_welcome(db: Session, background: BackgroundTasks | None, user) -> Notification:
+    """Welcome email for a new customer account. Sent straight away (not held for review)."""
+    first = (user.name or "").split(" ")[0] or "there"
+    body = "\n\n".join([
+        f"Hello {first},",
+        "Welcome to AIMORO! Your account has been created, and you can log in any time at "
+        f"{SITE_URL}/login with this email address.",
+        "**How it works**",
+        "1. Tell us what you want: send a photo or a link, and how many you need.\n"
+        "2. We find it and send you up to 3 options to compare, with one price in BSD.\n"
+        "3. Choose an option and pay your invoice.\n"
+        "4. We order it, ship it and deliver it to your address.",
+        f"Ready to start? Send your first request here: {SITE_URL}/my-requests/new",
+        f"If you have any questions, reply to this email or message us on WhatsApp at {CONTACT_WHATSAPP}.",
+        "Kind regards,\n" + os.getenv("EMAIL_SENDER_NAME", "Ashley"),
+    ])
+    n = Notification(user_id=user.id, request_id=None, channel="email", to_address=user.email,
+                     subject="Welcome to AIMORO", body=body, status="queued")
     db.add(n)
     db.flush()
     if background is not None:
@@ -71,11 +106,47 @@ def notify_admins(db: Session, background: BackgroundTasks | None, req: ProductR
             background.add_task(deliver, n.id)
 
 
+BOLD = re.compile(r"\*\*(.+?)\*\*")
+URL = re.compile(r"(https?://[^\s<]+)")
+BULLET = re.compile(r"^\s*[*-]\s+")
+NUMBER = re.compile(r"^\s*\d+[.)]\s+")
+
+
+def _inline(text: str) -> str:
+    text = BOLD.sub(r"<strong>\1</strong>", text)
+    return URL.sub(r'<a href="\1" style="color:#C40000;font-weight:bold;">\1</a>', text)
+
+
+def _list_html(tag: str, pattern, lines: list[str]) -> str:
+    items = "".join('<li style="margin:0 0 6px;">' + _inline(pattern.sub("", ln)) + "</li>" for ln in lines)
+    return f'<{tag} style="margin:0 0 14px;padding-left:22px;">{items}</{tag}>'
+
+
+def _blocks_html(body: str) -> str:
+    """Plain text to HTML: blank line = new paragraph, "* " or "- " lines = bullets,
+    "1. " lines = numbered list, **bold** = bold."""
+    out = []
+    for block in html.escape(body).replace("\r\n", "\n").split("\n\n"):
+        lines = [ln for ln in block.split("\n") if ln.strip()]
+        if not lines:
+            continue
+        if all(BULLET.match(ln) for ln in lines):
+            out.append(_list_html("ul", BULLET, lines))
+        elif all(NUMBER.match(ln) for ln in lines):
+            out.append(_list_html("ol", NUMBER, lines))
+        else:
+            out.append('<p style="margin:0 0 14px;">' + "<br>".join(_inline(ln) for ln in lines) + "</p>")
+    return "".join(out)
+
+
+def email_text(body: str) -> str:
+    """Plain-text version: drop the **bold** markers and add the text signature."""
+    return BOLD.sub(r"\1", body) + "\n\n--\n" + SIGNATURE_TEXT
+
+
 def email_html(body: str) -> str:
-    """Branded HTML version of a plain-text notification, with the AIMORO signature footer."""
-    text = html.escape(body)
-    text = re.sub(r"(https?://[^\s<]+)", r'<a href="\1" style="color:#C40000;font-weight:bold;">\1</a>', text)
-    paras = "".join(f'<p style="margin:0 0 14px;">{p.replace(chr(10), "<br>")}</p>' for p in text.split("\n\n"))
+    """Branded HTML version of a notification, with the AIMORO signature footer."""
+    paras = _blocks_html(body)
     wa = re.sub(r"\D", "", CONTACT_WHATSAPP)
     site = SITE_URL.split("://")[-1]
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#F1F5F9;">
@@ -98,6 +169,39 @@ WhatsApp: <a href="https://wa.me/{wa}" style="color:#475569;text-decoration:none
 </td></tr></table></body></html>"""
 
 
+ATTACHMENT_KINDS = ("options_preview", "options_full", "invoice")
+
+
+def build_attachments(db: Session, request_id: int | None, kinds: list[str]) -> list[dict]:
+    """Generate the PDFs to attach. Raises ValueError if one is not available yet."""
+    from .common import active_options
+    from .invoice_pdf import build_invoice_pdf
+    from .models import Invoice, Quote
+    from .options_pdf import build_options_pdf
+    files = []
+    req = db.get(ProductRequest, request_id) if request_id else None
+    for kind in kinds:
+        if req is None:
+            raise ValueError("Attachments need a request")
+        if kind in ("options_preview", "options_full"):
+            opts = active_options(req)
+            if not opts:
+                raise ValueError("There are no options to attach yet")
+            preview = kind == "options_preview"
+            pdf = build_options_pdf(req, opts, preview=preview)
+            name = f"AIMORO-options-request-{req.id}{'-preview' if preview else ''}.pdf"
+        elif kind == "invoice":
+            inv = db.scalars(select(Invoice).join(Quote)
+                             .where(Quote.request_id == req.id).order_by(Invoice.id.desc())).first()
+            if inv is None:
+                raise ValueError("There is no invoice to attach yet")
+            pdf, name = build_invoice_pdf(inv), f"AIMORO-invoice-{inv.number}.pdf"
+        else:
+            raise ValueError(f"Unknown attachment: {kind}")
+        files.append({"filename": name, "content": base64.b64encode(pdf).decode()})
+    return files
+
+
 def email_enabled() -> bool:
     return bool(os.getenv("RESEND_API_KEY") and os.getenv("EMAIL_FROM"))
 
@@ -118,12 +222,14 @@ def deliver(notification_id: int) -> None:
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {os.environ['RESEND_API_KEY']}"},
                     json={"from": os.environ["EMAIL_FROM"], "to": [n.to_address],
-                          "subject": n.subject, "text": f"{n.body}\n\n--\n{SIGNATURE_TEXT}",
-                          "html": email_html(n.body), "reply_to": CONTACT_EMAIL},
-                    timeout=10,
+                          "subject": n.subject, "text": email_text(n.body),
+                          "html": email_html(n.body), "reply_to": CONTACT_EMAIL,
+                          "attachments": build_attachments(db, n.request_id, json.loads(n.attachments or "[]"))},
+                    timeout=30,
                 )
                 resp.raise_for_status()
                 n.status = "sent"
+                n.sent_at = datetime.now(timezone.utc)
             except Exception as exc:  # noqa: BLE001
                 n.status = "failed"
                 n.error = str(exc)[:500]

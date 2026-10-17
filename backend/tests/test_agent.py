@@ -9,6 +9,7 @@ os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(TMP, "test.db")
 os.environ["UPLOAD_DIR"] = os.path.join(TMP, "uploads")
 os.environ["ADMIN_EMAILS"] = "admin@aimoro.test"
 os.environ["DEFAULT_CNY_USD"] = "0.14"
+os.environ.setdefault("EMAIL_REVIEW", "off")  # older tests expect automatic emails; test_emails turns review on
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient  # noqa: E402

@@ -1,17 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import admin_emails, create_token, get_current_user, hash_password, verify_password
 from ..db import get_db
 from ..models import User
+from ..notify import send_welcome
 from ..schemas import LoginIn, SignupIn, TokenOut, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/signup", response_model=TokenOut)
-def signup(body: SignupIn, db: Session = Depends(get_db)):
+def signup(body: SignupIn, background: BackgroundTasks, db: Session = Depends(get_db)):
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(409, "An account with this email already exists")
     user = User(
@@ -24,6 +25,9 @@ def signup(body: SignupIn, db: Session = Depends(get_db)):
         address=body.address.strip(),
     )
     db.add(user)
+    db.flush()
+    if user.role == "customer":
+        send_welcome(db, background, user)
     db.commit()
     return TokenOut(token=create_token(user), user=UserOut.model_validate(user))
 

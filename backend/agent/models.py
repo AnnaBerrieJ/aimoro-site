@@ -199,6 +199,9 @@ class Notification(Base):
     to_address: Mapped[str] = mapped_column(String(255))
     subject: Mapped[str] = mapped_column(String(255))
     body: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(20), default="queued")  # queued | sent | skipped | failed
+    # draft (waiting for admin review) | queued | sent | skipped | failed | discarded
+    status: Mapped[str] = mapped_column(String(20), default="queued")
     error: Mapped[str] = mapped_column(Text, default="")
+    attachments: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list, e.g. ["invoice"]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
