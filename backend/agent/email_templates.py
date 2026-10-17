@@ -81,8 +81,10 @@ def email_templates(req: ProductRequest) -> list[dict]:
                     "The report compares what you asked for with what we found, side by side, with pricing for every "
                     "option. This is a preview report, so model names, photos and some details are hidden until you "
                     "decide to proceed.",
-                    f"**Sourcing fee waived**\nOur standard sourcing fee is {_money(hourly)} per hour. As a Friends and "
-                    "Family courtesy, we have waived this fee for Phase 1.",
+                    (f"**Sourcing fee waived**\nOur standard sourcing fee is {_money(hourly)} per hour. As a Friends "
+                     "and Family courtesy, we have waived this fee for Phase 1." if req.fee_waived else
+                     f"**Sourcing fee**\nOur sourcing fee is {_money(hourly)} per hour. The sourcing fee for this "
+                     "report is $[amount]."),
                     f"**Next step: Phase 2**\nIf you would like to proceed, a {_money(phase2)} fee gives you:",
                     "* The full report, with model names, photos and complete specifications for every option\n"
                     "* Continuation of the ordering process for the option you choose: confirming details with the "
@@ -140,6 +142,19 @@ def email_templates(req: ProductRequest) -> list[dict]:
                         f"({_money(inv.amount_bsd)} BSD).",
                         "We are now placing your order with the supplier. We will keep you updated at every step, and "
                         f"you can follow your order here: {link}",
+                        _questions(), _signoff()])})
+
+    if req.warehouse_photos:
+        n_ph = len(req.warehouse_photos)
+        out.append({"key": "warehouse", "label": "Warehouse check photos",
+                    "subject": f"We checked your order · {product}",
+                    "attachments": [],
+                    "body": "\n\n".join([
+                        hi,
+                        f"Your order, **{product}**, has arrived at our China warehouse and we have checked it.",
+                        f"We have added {n_ph} photo{'s' if n_ph != 1 else ''} so you can see exactly what arrived: {link}",
+                        "If everything looks good, there is nothing you need to do. We will let you know as soon as it "
+                        "ships. If anything does not look right, reply to this email before it ships.",
                         _questions(), _signoff()])})
 
     ship = getattr(req, "shipment", None)

@@ -11,6 +11,7 @@ import { Timeline } from '@/components/agent/Timeline'
 import { ListingCustomerView } from '@/components/agent/ListingCustomerView'
 import { OptionsBuilder } from '@/components/agent/OptionsBuilder'
 import { EmailCenter } from '@/components/agent/EmailCenter'
+import { WarehousePhotoUpload } from '@/components/agent/WarehousePhotos'
 
 const EMPTY_LISTING = { platform: 'taobao', url: '', title: '', price_cny: '', china_shipping_cny: '', seller_rating: '', weight_kg: '', notes: '' }
 
@@ -75,6 +76,11 @@ function Workspace() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-extrabold text-slate-900">#{req.id} · {req.product_name}</h1>
         <StatusBadge status={req.status} />
+        <label className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-semibold cursor-pointer ${req.fee_waived ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-white border-slate-200 text-slate-600'}`}>
+          <input type="checkbox" checked={req.fee_waived} disabled={busy}
+            onChange={e => { const v = e.target.checked; act(() => api.adminUpdateRequest(req.id, { fee_waived: v })) }} />
+          Friends &amp; Family: sourcing fee waived
+        </label>
       </div>
       <ErrorNote message={error} />
       {req.notifications.some(n => n.status === 'draft' && n.to_address === req.customer.email) && (
@@ -96,7 +102,11 @@ function Workspace() {
               <div><dt className="inline text-slate-500">Received: </dt><dd className="inline">{shortDate(req.created_at)}</dd></div>
             </dl>
             {photoUrl && <img src={photoUrl} alt="Customer photo" className="mt-3 max-h-56 rounded-xl border border-slate-100" />}
-            <label className={`${secondaryBtn} mt-3 w-full cursor-pointer !py-2 text-xs`}>
+            {req.has_photo && (
+              <button type="button" disabled={busy} className={`${secondaryBtn} mt-3 w-full !py-2 text-xs`}
+                onClick={() => act(() => api.downloadFile(`/requests/${req.id}/photo`, `request-${req.id}-photo`))}>Download photo</button>
+            )}
+            <label className={`${secondaryBtn} mt-2 w-full cursor-pointer !py-2 text-xs`}>
               {req.has_photo ? 'Replace "what they asked for" photo' : 'Add "what they asked for" photo'}
               <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={busy}
                 onChange={e => { const f = e.target.files?.[0]; e.target.value = ''
@@ -139,7 +149,8 @@ function Workspace() {
         <div className="lg:col-span-2 space-y-4">
           <Card>
             <h2 className="font-bold text-slate-900 mb-1">Sourcing <span className="text-xs font-semibold text-slate-400">(private)</span></h2>
-            <p className="text-xs text-slate-500 mb-3">Paste what you find in the Taobao / Pinduoduo / 1688 apps. Prices in CNY; BSD shown at today's rate.</p>
+            <p className="text-xs text-slate-500 mb-3">Paste what you find in the Taobao / Pinduoduo / 1688 apps. Prices in CNY; BSD shown at today's rate.
+              For each listing, click <b>Add photo &amp; specs</b> to upload its photo and fill in the comparison the customer sees.</p>
             {req.listings.length > 0 && (
               <div className="overflow-x-auto -mx-1 mb-4">
                 <table className="w-full text-sm">
@@ -147,7 +158,7 @@ function Workspace() {
                     <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
                       <th className="py-2 px-1">Platform</th><th className="px-1">Item</th>
                       <th className="px-1 text-right">¥ each</th><th className="px-1 text-right">¥ ship</th>
-                      <th className="px-1 text-right">≈ BSD each</th><th className="px-1">Rating</th><th className="px-1">Customer view</th><th className="px-1" />
+                      <th className="px-1 text-right">≈ BSD each</th><th className="px-1">Rating</th><th className="px-1">Photo &amp; specs</th><th className="px-1" />
                     </tr>
                   </thead>
                   <tbody>
@@ -166,9 +177,10 @@ function Workspace() {
                         </td>
                         <td className="px-1">{l.seller_rating ?? '—'}</td>
                         <td className="px-1">
-                          <button type="button" className="text-xs font-semibold text-[#c40000] whitespace-nowrap"
-                            aria-expanded={openView === l.id} onClick={() => setOpenView(openView === l.id ? null : l.id)}>
-                            {openView === l.id ? 'Close' : l.has_photo && l.specs.length ? 'Edit ✓' : 'Set up'}
+                          <button type="button" aria-expanded={openView === l.id} onClick={() => setOpenView(openView === l.id ? null : l.id)}
+                            className={`text-xs font-semibold whitespace-nowrap px-2.5 py-1 rounded-full border ${l.has_photo && l.specs.length
+                              ? 'border-emerald-200 text-emerald-700 bg-emerald-50' : 'border-[#c40000] text-white bg-[#c40000]'}`}>
+                            {openView === l.id ? 'Close' : l.has_photo && l.specs.length ? 'Edit photo & specs ✓' : 'Add photo & specs'}
                           </button>
                         </td>
                         <td className="px-1 text-right">
@@ -190,7 +202,7 @@ function Workspace() {
             <form className="grid grid-cols-2 sm:grid-cols-4 gap-2" onSubmit={e => {
               e.preventDefault()
               act(async () => {
-                await api.addListing(req.id, {
+                const added = await api.addListing(req.id, {
                   platform: listing.platform as api.Platform,
                   url: listing.url.trim(), title: listing.title.trim(),
                   price_cny: Number(listing.price_cny), china_shipping_cny: Number(listing.china_shipping_cny) || 0,
@@ -198,6 +210,7 @@ function Workspace() {
                   public_title: '', public_notes: '', specs: [],
                 })
                 setListing(EMPTY_LISTING)
+                setOpenView(added.id)  // go straight to photo & specs
               })
             }}>
               <select aria-label="Platform" className={inputClass} value={listing.platform} onChange={e => setListing({ ...listing, platform: e.target.value })}>
@@ -285,6 +298,7 @@ function Workspace() {
                       <button disabled={busy} className={secondaryBtn}>Arrived</button>
                     </form>
                   ) : <p className="text-slate-400">After the supplier order</p>}
+                  {['paid', 'ordered', 'shipped', 'delivered'].includes(req.status) && <WarehousePhotoUpload req={req} onChanged={load} />}
                 </li>
                 <li>
                   <p className="font-semibold text-slate-800">3. Shipment</p>

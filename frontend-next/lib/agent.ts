@@ -84,7 +84,10 @@ export interface ProductRequest {
   shipment: CustomerShipment | null
   options: CustomerOption[]
   timeline: TimelineEvent[]
+  warehouse_photos: WarehousePhoto[]
 }
+
+export interface WarehousePhoto { id: number; caption: string; created_at: string }
 
 export interface Listing {
   id: number; platform: Platform; url: string; title: string
@@ -132,6 +135,7 @@ export interface AdminRequest extends ProductRequest {
   shipment_id: number | null
   events: AdminEvent[]
   notifications: NotificationLog[]
+  fee_waived: boolean
 }
 
 export interface ShipmentItem {
@@ -228,6 +232,7 @@ export const myRequests = () => request<ProductRequest[]>('/requests')
 export const getRequest = (id: number) => request<ProductRequest>(`/requests/${id}`)
 export const approveQuote = (id: number, quoteId?: number) =>
   request<ProductRequest>(`/requests/${id}/approve${quoteId ? `?quote_id=${quoteId}` : ''}`, { method: 'POST' })
+export const warehousePhotoPath = (requestId: number, photoId: number) => `/requests/${requestId}/warehouse-photos/${photoId}`
 export const optionPhotoPath = (requestId: number, quoteId: number) => `/requests/${requestId}/options/${quoteId}/photo`
 
 export async function downloadOptionsPdf(requestId: number) {
@@ -272,7 +277,7 @@ export const adminSummary = () => request<Record<RequestStatus, number>>('/admin
 export const adminRequests = (status?: string) =>
   request<AdminRequest[]>(`/admin/requests${status ? `?status=${status}` : ''}`)
 export const adminRequest = (id: number) => request<AdminRequest>(`/admin/requests/${id}`)
-export const adminUpdateRequest = (id: number, body: Partial<Pick<AdminRequest, 'status' | 'admin_notes' | 'tracking_number'>>) =>
+export const adminUpdateRequest = (id: number, body: Partial<Pick<AdminRequest, 'status' | 'admin_notes' | 'tracking_number' | 'fee_waived'>>) =>
   request<AdminRequest>(`/admin/requests/${id}`, { method: 'PATCH', body: json(body) })
 export const updateListing = (id: number, body: ListingInput) =>
   request<Listing>(`/admin/listings/${id}`, { method: 'PATCH', body: json(body) })
@@ -295,6 +300,26 @@ export const sendEmail = (id: number) => request<NotificationLog>(`/admin/notifi
 export const discardEmail = (id: number) => request<NotificationLog>(`/admin/notifications/${id}/discard`, { method: 'POST' })
 export const previewEmail = (body: string) => request<{ html: string }>('/admin/emails/preview', { method: 'POST', body: json({ body }) })
 export const emailDrafts = () => request<EmailDraftBrief[]>('/admin/email-drafts')
+export const uploadWarehousePhotos = (requestId: number, files: File[], caption: string) => {
+  const fd = new FormData()
+  files.forEach(f => fd.append('files', f))
+  fd.append('caption', caption)
+  return request<AdminRequest>(`/admin/requests/${requestId}/warehouse-photos`, { method: 'POST', body: fd })
+}
+export const deleteWarehousePhoto = (photoId: number) =>
+  request<AdminRequest>(`/admin/warehouse-photos/${photoId}`, { method: 'DELETE' })
+export async function downloadFile(path: string, filename: string) {
+  const token = getToken()
+  const res = await fetch(`${API_BASE_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (!res.ok) throw new ApiError(res.status, 'Could not download file')
+  const blob = await res.blob()
+  const ext = ({ 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf' } as Record<string, string>)[blob.type] ?? ''
+  if (ext && !filename.endsWith(ext)) filename += ext
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 2000)
+}
 export const addListing = (requestId: number, body: ListingInput) =>
   request<Listing>(`/admin/requests/${requestId}/listings`, { method: 'POST', body: json(body) })
 export const deleteListing = (id: number) =>

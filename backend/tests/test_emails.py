@@ -78,3 +78,41 @@ def test_welcome_email_on_signup():
         assert n.status == "skipped"  # sent straight away (email not configured in tests), never held as a draft
     finally:
         db.close()
+
+
+def test_fee_waiver_and_warehouse_photos(u, monkeypatch):
+    from test_options import png_bytes
+    monkeypatch.setenv("EMAIL_REVIEW", "on")
+    rid = client.post("/requests", headers=u["cust"], json={"product_name": "Rattan chair", "quantity": 1,
+                                                          "delivery_address": "Nassau"}).json()["id"]
+    l1 = make_listing(u, rid, 100, "Chair A", "椅子")
+    base = {"freight_cost_bsd": 10, "freight_markup_pct": 0, "insurance_bsd": 0}
+    client.post(f"/admin/requests/{rid}/proposal", headers=u["admin"], json={"options": [{"listing_id": l1, **base}]})
+
+    # waiver off by default -> template asks for the fee; on -> "waived"
+    t = {x["key"]: x for x in client.get(f"/admin/requests/{rid}/email-templates", headers=u["admin"]).json()}
+    assert "Sourcing fee**" in t["options_preview"]["body"] and "waived" not in t["options_preview"]["body"]
+    r = client.patch(f"/admin/requests/{rid}", headers=u["admin"], json={"fee_waived": True})
+    assert r.status_code == 200 and r.json()["fee_waived"] is True
+    t = {x["key"]: x for x in client.get(f"/admin/requests/{rid}/email-templates", headers=u["admin"]).json()}
+    assert "Sourcing fee waived" in t["options_preview"]["body"]
+
+    # warehouse photos only after payment
+    img = {"files": ("w.png", png_bytes(), "image/png")}
+    assert client.post(f"/admin/requests/{rid}/warehouse-photos", headers=u["admin"], files=img).status_code == 400
+    client.post(f"/requests/{rid}/approve", headers=u["cust"])
+    inv = client.get(f"/requests/{rid}", headers=u["cust"]).json()["invoice"]
+    client.post(f"/admin/invoices/{inv['id']}/mark-paid?reference=test", headers=u["admin"])
+    r = client.post(f"/admin/requests/{rid}/warehouse-photos", headers=u["admin"],
+                    files=[("files", ("a.png", png_bytes(), "image/png")), ("files", ("b.png", png_bytes((10, 10, 10)), "image/png"))],
+                    data={"caption": "Front and back"})
+    assert r.status_code == 200, r.text
+    cust_view = client.get(f"/requests/{rid}", headers=u["cust"]).json()
+    photos = cust_view["warehouse_photos"]
+    assert len(photos) == 2 and photos[0]["caption"] == "Front and back"
+    assert any("China warehouse" in e["message"] for e in cust_view["timeline"])
+    assert client.get(f"/requests/{rid}/warehouse-photos/{photos[0]['id']}", headers=u["cust"]).status_code == 200
+    t = {x["key"] for x in client.get(f"/admin/requests/{rid}/email-templates", headers=u["admin"]).json()}
+    assert "warehouse" in t
+    r = client.delete(f"/admin/warehouse-photos/{photos[0]['id']}", headers=u["admin"])
+    assert r.status_code == 200 and len(r.json()["warehouse_photos"]) == 1

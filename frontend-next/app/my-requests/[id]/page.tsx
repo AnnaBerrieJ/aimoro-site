@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { RequireAuth } from '@/components/agent/RequireAuth'
 import { Card, ErrorNote, StatusSteps, primaryBtn, secondaryBtn } from '@/components/agent/ui'
 import { OptionsView } from '@/components/agent/OptionsView'
+import { WarehousePhotoGrid } from '@/components/agent/WarehousePhotos'
 import { ShipmentSteps, Timeline } from '@/components/agent/Timeline'
 import * as api from '@/lib/agent'
 import { bsd, shortDate } from '@/lib/agent'
@@ -117,6 +118,14 @@ function RequestDetail() {
         <Card>
           <h2 className="font-bold text-slate-900">Tracking</h2>
           <p className="text-sm text-slate-700 mt-1 font-mono">{req.tracking_number}</p>
+        </Card>
+      )}
+
+      {req.warehouse_photos.length > 0 && (
+        <Card>
+          <h2 className="font-bold text-slate-900">Warehouse check</h2>
+          <p className="text-sm text-slate-600 mb-3">We checked your order at our China warehouse. Here is exactly what arrived. Tap a photo to see it full size.</p>
+          <WarehousePhotoGrid requestId={req.id} photos={req.warehouse_photos} />
         </Card>
       )}
 

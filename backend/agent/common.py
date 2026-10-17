@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from .models import ProductRequest, Quote, SupplierListing, User
 from .schemas import (CustomerOptionOut, CustomerQuoteOut, CustomerShipmentOut, EventOut, InvoiceOut,
-                      RequestOut, SpecRow)
+                      RequestOut, SpecRow, WarehousePhotoOut)
 
 UPLOAD_DIR = os.getenv(
     "UPLOAD_DIR",
@@ -132,4 +132,5 @@ def to_customer(req: ProductRequest) -> RequestOut:
         shipment=CustomerShipmentOut.model_validate(req.shipment) if req.shipment else None,
         options=[option_out(req, o) for o in active_options(req)],
         timeline=[EventOut.model_validate(e) for e in req.events if e.customer_visible],
+        warehouse_photos=[WarehousePhotoOut.model_validate(p) for p in req.warehouse_photos],
     )

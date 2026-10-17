@@ -71,6 +71,16 @@ def get_photo(request_id: int, user: User = Depends(get_current_user), db: Sessi
     return FileResponse(upload_path(req.photo_path))
 
 
+@router.get("/requests/{request_id}/warehouse-photos/{photo_id}")
+def get_warehouse_photo(request_id: int, photo_id: int, user: User = Depends(get_current_user),
+                        db: Session = Depends(get_db)):
+    req = get_request_for(db, request_id, user)
+    photo = next((p for p in req.warehouse_photos if p.id == photo_id), None)
+    if photo is None:
+        raise HTTPException(404, "Photo not found")
+    return FileResponse(upload_path(photo.path))
+
+
 @router.get("/requests/{request_id}/options/{quote_id}/photo")
 def option_photo(request_id: int, quote_id: int, user: User = Depends(get_current_user),
                  db: Session = Depends(get_db)):

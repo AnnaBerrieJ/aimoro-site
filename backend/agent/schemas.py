@@ -125,6 +125,13 @@ class CustomerShipmentOut(BaseModel):
     delivered_at: datetime | None
 
 
+class WarehousePhotoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    caption: str
+    created_at: datetime
+
+
 class RequestOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -144,6 +151,7 @@ class RequestOut(BaseModel):
     shipment: CustomerShipmentOut | None = None
     options: list[CustomerOptionOut] = []
     timeline: list[EventOut] = []
+    warehouse_photos: list[WarehousePhotoOut] = []
 
 
 # ---------- admin ----------
@@ -287,6 +295,7 @@ class AdminRequestOut(RequestOut):
     shipment_id: int | None = None
     events: list[AdminEventOut] = []
     notifications: list[NotificationOut] = []
+    fee_waived: bool = False
 
 
 class OrderIn(BaseModel):
@@ -345,6 +354,7 @@ class AdminRequestUpdate(BaseModel):
     status: str | None = None
     admin_notes: str | None = None
     tracking_number: str | None = None
+    fee_waived: bool | None = None
 
 
 ProposalIn.model_rebuild()

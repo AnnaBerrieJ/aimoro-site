@@ -53,6 +53,7 @@ def _admin_view(req: ProductRequest, fx: float | None = None) -> AdminRequestOut
         events=[AdminEventOut.model_validate(e) for e in reversed(req.events)],
         notifications=[NotificationOut.model_validate(n) for n in sorted(
             _notifications_for(req), key=lambda n: n.id, reverse=True)],
+        fee_waived=bool(req.fee_waived),
     )
 
 
@@ -100,6 +101,10 @@ def update_request(request_id: int, body: AdminRequestUpdate, db: Session = Depe
         req.admin_notes = body.admin_notes
     if body.tracking_number is not None:
         req.tracking_number = body.tracking_number
+    if body.fee_waived is not None and bool(req.fee_waived) != body.fee_waived:
+        req.fee_waived = body.fee_waived
+        add_event(db, req, "fee", "Friends and Family: sourcing fee waived." if body.fee_waived
+                  else "Sourcing fee waiver removed.", visible=False)
     db.commit()
     return _admin_view(req)
 

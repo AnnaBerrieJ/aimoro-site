@@ -66,6 +66,8 @@ class ProductRequest(Base):
     warehouse_arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     warehouse_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     shipment_id: Mapped[int | None] = mapped_column(ForeignKey("shipments.id"), nullable=True, index=True)
+    # Friends and Family: sourcing fee waived for this request (set by admin)
+    fee_waived: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=False)
 
     user: Mapped[User] = relationship(back_populates="requests")
     shipment: Mapped["Shipment | None"] = relationship(back_populates="requests")
@@ -74,6 +76,8 @@ class ProductRequest(Base):
 
     listings: Mapped[list["SupplierListing"]] = relationship(back_populates="request", cascade="all, delete-orphan")
     quotes: Mapped[list["Quote"]] = relationship(back_populates="request", cascade="all, delete-orphan")
+    warehouse_photos: Mapped[list["WarehousePhoto"]] = relationship(
+        back_populates="request", cascade="all, delete-orphan", order_by="WarehousePhoto.id")
 
 
 class SupplierListing(Base):
@@ -205,3 +209,16 @@ class Notification(Base):
     attachments: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list, e.g. ["invoice"]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class WarehousePhoto(Base):
+    """Photos taken at the China warehouse check, shown to the customer."""
+    __tablename__ = "warehouse_photos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[int] = mapped_column(ForeignKey("requests.id"), index=True)
+    path: Mapped[str] = mapped_column(Text)
+    caption: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    request: Mapped[ProductRequest] = relationship(back_populates="warehouse_photos")

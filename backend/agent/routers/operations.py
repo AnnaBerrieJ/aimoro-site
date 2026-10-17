@@ -1,16 +1,17 @@
 """Admin operations after payment: supplier orders, China warehouse, and
 consolidated shipments. AIMORO's responsibility ends when an order is
 delivered to the customer's address."""
+import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import require_admin
 from ..db import get_db
-from ..common import delivery_address
-from ..models import SHIPMENT_METHODS, SHIPMENT_STATUSES, ProductRequest, Shipment
+from ..common import delivery_address, save_photo, upload_path
+from ..models import SHIPMENT_METHODS, SHIPMENT_STATUSES, ProductRequest, Shipment, WarehousePhoto
 from ..notify import add_event, notify_customer
 from ..schemas import (AdminRequestOut, AdminShipmentOut, OrderIn, ShipmentIn, ShipmentRequestBrief,
                        ShipmentStatusIn, WarehouseIn)
@@ -63,6 +64,46 @@ def warehouse_arrival(request_id: int, body: WarehouseIn, db: Session = Depends(
     if req.warehouse_notes:
         add_event(db, req, "warehouse_notes", f"Warehouse check: {req.warehouse_notes}", visible=False)
     db.commit()
+    return _admin_view(req)
+
+
+MAX_WAREHOUSE_PHOTOS = 12
+
+
+@router.post("/requests/{request_id}/warehouse-photos", response_model=AdminRequestOut)
+async def add_warehouse_photos(request_id: int, background: BackgroundTasks, files: list[UploadFile] = File(...),
+                               caption: str = Form(""), db: Session = Depends(get_db)):
+    """Photos from the China warehouse check, so the customer can see exactly what arrived."""
+    req = _get_req(db, request_id)
+    if req.status in ("received", "sourcing", "quote_ready", "cancelled"):
+        raise HTTPException(400, "Warehouse photos can be added once the order is paid")
+    if len(req.warehouse_photos) + len(files) > MAX_WAREHOUSE_PHOTOS:
+        raise HTTPException(400, f"Up to {MAX_WAREHOUSE_PHOTOS} warehouse photos per request")
+    for f in files:
+        db.add(WarehousePhoto(request_id=req.id, path=await save_photo(f, f"wh{req.id}"), caption=caption.strip()[:200]))
+    n = len(files)
+    msg = (f"We checked your order at our China warehouse. {n} photo{'s' if n != 1 else ''} of your item "
+           f"{'are' if n != 1 else 'is'} now on your request page.")
+    add_event(db, req, "warehouse_photos", msg)
+    notify_customer(db, background, req, "Warehouse check photos", msg)
+    db.commit()
+    db.refresh(req)
+    return _admin_view(req)
+
+
+@router.delete("/warehouse-photos/{photo_id}", response_model=AdminRequestOut)
+def delete_warehouse_photo(photo_id: int, db: Session = Depends(get_db)):
+    p = db.get(WarehousePhoto, photo_id)
+    if p is None:
+        raise HTTPException(404, "Photo not found")
+    req = p.request
+    try:
+        os.remove(upload_path(p.path))
+    except OSError:
+        pass
+    db.delete(p)
+    db.commit()
+    db.refresh(req)
     return _admin_view(req)
 
 
