@@ -32,14 +32,15 @@ def test_email_review_flow(u, monkeypatch):
 
     view = client.get(f"/admin/requests/{rid}", headers=u["admin"]).json()
     drafts = [n for n in view["notifications"] if n["status"] == "draft"]
-    assert len(drafts) == 1 and drafts[0]["subject"].startswith("Your options are ready")
+    assert len(drafts) == 1 and drafts[0]["subject"].startswith("Your preview report is ready")
     assert any(d["id"] == drafts[0]["id"] for d in client.get("/admin/email-drafts", headers=u["admin"]).json())
 
     # templates are filled with this request's options, never the secret listing titles
     t = {x["key"]: x for x in client.get(f"/admin/requests/{rid}/email-templates", headers=u["admin"]).json()}
     assert {"options_preview", "options_full", "quote", "custom"} <= set(t)
     pv = t["options_preview"]
-    assert "Phase 1" in pv["subject"] and "Scanner A" in pv["body"] and "Scanner B" in pv["body"]
+    assert "preview report" in pv["subject"] and "Option 1" in pv["body"] and "Option 2" in pv["body"]
+    assert "Scanner A" not in pv["body"] and "Scanner A" in t["options_full"]["body"]  # model names only in the full report
     assert "+ shipping" in pv["body"] and "Dana" in pv["body"] and "秘密" not in pv["body"]
     assert pv["attachments"] == ["options_preview"]
 
@@ -51,7 +52,7 @@ def test_email_review_flow(u, monkeypatch):
     assert client.patch(f"/admin/notifications/{d}", headers=u["admin"], json={"attachments": ["invoice"]}).status_code == 400
     assert client.post(f"/admin/notifications/{d}/send", headers=u["admin"]).status_code == 200
     sent = next(n for n in client.get(f"/admin/requests/{rid}", headers=u["admin"]).json()["notifications"] if n["id"] == d)
-    assert sent["status"] == "skipped" and sent["subject"].startswith("Your AIMORO sourcing options")
+    assert sent["status"] == "skipped" and sent["subject"].startswith("Your AIMORO preview report")
     assert client.post(f"/admin/notifications/{d}/send", headers=u["admin"]).status_code == 400
 
     # compose a new email from a template, save as draft, then discard it
@@ -100,6 +101,7 @@ def test_fee_waiver_and_warehouse_photos(u, monkeypatch):
     # warehouse photos only after payment
     img = {"files": ("w.png", png_bytes(), "image/png")}
     assert client.post(f"/admin/requests/{rid}/warehouse-photos", headers=u["admin"], files=img).status_code == 400
+    client.post(f"/admin/requests/{rid}/report-fee", headers=u["admin"])
     client.post(f"/requests/{rid}/approve", headers=u["cust"])
     inv = client.get(f"/requests/{rid}", headers=u["cust"]).json()["invoice"]
     client.post(f"/admin/invoices/{inv['id']}/mark-paid?reference=test", headers=u["admin"])

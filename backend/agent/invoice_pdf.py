@@ -38,6 +38,9 @@ def _delivery_address(req, user) -> list[str]:
     lines = [addr] if addr else []
     if user.island and user.island.lower() not in addr.lower():
         lines.append(user.island)
+    country = getattr(user, "country", None) or ""
+    if country and country.lower() not in addr.lower():
+        lines.append(country)
     return lines
 
 

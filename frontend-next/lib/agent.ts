@@ -4,6 +4,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8
 const TOKEN_KEY = 'aimoro_token'
 
 export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'aimoroinfo@gmail.com'
+export const CONTACT_WHATSAPP = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP || '+1 281-673-6703'
 
 export type RequestStatus =
   | 'received' | 'sourcing' | 'quote_ready' | 'paid'
@@ -32,9 +33,47 @@ export const ISLANDS = [
   'Long Island', 'Bimini', 'Cat Island', 'Inagua', 'Other',
 ]
 
+export const COUNTRIES = ['Bahamas', 'United States', 'Canada'] as const
+export type Country = (typeof COUNTRIES)[number]
+
+export const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
+  'District of Columbia', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas',
+  'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi',
+  'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York',
+  'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Puerto Rico', 'Rhode Island',
+  'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington',
+  'West Virginia', 'Wisconsin', 'Wyoming',
+]
+
+export const CA_PROVINCES = [
+  'Alberta', 'British Columbia', 'Manitoba', 'New Brunswick', 'Newfoundland and Labrador',
+  'Northwest Territories', 'Nova Scotia', 'Nunavut', 'Ontario', 'Prince Edward Island', 'Quebec',
+  'Saskatchewan', 'Yukon',
+]
+
+/** Islands (Bahamas), states (US) or provinces (Canada) for the location dropdown. */
+export const REGIONS: Record<Country, { label: string; options: string[] }> = {
+  Bahamas: { label: 'Island', options: ISLANDS },
+  'United States': { label: 'State', options: US_STATES },
+  Canada: { label: 'Province', options: CA_PROVINCES },
+}
+
+/** "Florida, United States" / "New Providence, Bahamas". */
+export const locationText = (u: { island: string; country?: string | null }) =>
+  [u.island, u.country].filter(Boolean).join(', ')
+
+/** Bahamas, US and Canada all use +1: area code + 7 digits. Returns null when invalid. */
+export function formatPhone(input: string): string | null {
+  let d = input.replace(/\D/g, '')
+  if (d.length === 11 && d.startsWith('1')) d = d.slice(1)
+  if (d.length !== 10) return null
+  return `+1 ${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`
+}
+
 export interface User {
   id: number; email: string; role: 'customer' | 'admin'
-  name: string; phone: string; island: string; address: string
+  name: string; phone: string; country: Country | null; island: string; address: string
 }
 
 export interface CustomerQuote {
@@ -71,6 +110,8 @@ export interface SpecRow { label: string; requested: string; found: string; matc
 /** A found product as the customer sees it (never supplier, platform, link or CNY price). */
 export interface CustomerOption {
   id: number; option_number: number; title: string; notes: string; specs: SpecRow[]; has_photo: boolean
+  /** Preview: "found" and match status are withheld until the report fee is paid. */
+  locked: boolean
   product_cost_bsd: number; shipping_bsd: number; service_fee_bsd: number; total_bsd: number
   status: 'sent' | 'approved' | 'expired' | 'superseded'; expires_at: string
 }
@@ -85,16 +126,24 @@ export interface ProductRequest {
   options: CustomerOption[]
   timeline: TimelineEvent[]
   warehouse_photos: WarehousePhoto[]
+  /** The full report unlocks once Ashley confirms the report fee. */
+  report_unlocked: boolean; report_fee_bsd: number; report_paid_at: string | null
 }
 
 export interface WarehousePhoto { id: number; caption: string; media_type: 'image' | 'video'; created_at: string }
 
+export type Currency = 'CNY' | 'USD'
+export const CUR_SYMBOL: Record<Currency, string> = { CNY: '¥', USD: '$' }
+/** Listing price in its own currency, e.g. "¥128.00" or "$45.00". */
+export const money = (cur: Currency | null | undefined, n: number) => `${CUR_SYMBOL[cur || 'CNY']}${n.toFixed(2)}`
+
 export interface Listing {
   id: number; platform: Platform; url: string; title: string
+  currency: Currency  // price_cny / china_shipping_cny are in this currency
   price_cny: number; china_shipping_cny: number
   seller_rating: number | null; weight_kg: number | null; notes: string
   // customer-facing presentation
-  public_title: string; public_notes: string; specs: SpecRow[]; has_photo: boolean
+  public_title: string; preview_title: string; public_notes: string; specs: SpecRow[]; has_photo: boolean
   is_chosen: boolean; price_bsd_estimate: number | null; created_at: string
 }
 
@@ -127,7 +176,7 @@ export interface EmailDraftBrief { id: number; request_id: number; product_name:
 
 export interface AdminRequest extends ProductRequest {
   admin_notes: string
-  customer: { id: number; name: string; email: string; phone: string; island: string; address: string }
+  customer: { id: number; name: string; email: string; phone: string; country: string | null; island: string; address: string }
   listings: Listing[]
   quotes: AdminQuote[]
   supplier_order_no: string | null; ordered_at: string | null
@@ -136,6 +185,7 @@ export interface AdminRequest extends ProductRequest {
   events: AdminEvent[]
   notifications: NotificationLog[]
   fee_waived: boolean
+  report_fee_ref: string | null
 }
 
 export interface ShipmentItem {
@@ -207,7 +257,7 @@ const json = (body: unknown) => JSON.stringify(body)
 // ── auth ──────────────────────────────────────────────────────────────────────
 
 export interface SignupInput {
-  email: string; password: string; name: string; phone: string; island: string; address: string
+  email: string; password: string; name: string; phone: string; country: Country; island: string; address: string
 }
 export const signup = (body: SignupInput) =>
   request<{ token: string; user: User }>('/auth/signup', { method: 'POST', body: json(body) })
@@ -350,6 +400,9 @@ export const sendQuote = (requestId: number, body: QuoteBuildInput) =>
   request<AdminQuote>(`/admin/requests/${requestId}/quote`, { method: 'POST', body: json(body) })
 export const markInvoicePaid = (invoiceId: number, reference: string) =>
   request<Invoice>(`/admin/invoices/${invoiceId}/mark-paid?reference=${encodeURIComponent(reference)}`, { method: 'POST' })
+/** Confirm (or undo) the report fee: confirming unlocks the full report for the customer. */
+export const adminReportFee = (id: number, paid: boolean, reference = '') =>
+  request<AdminRequest>(`/admin/requests/${id}/report-fee?paid=${paid}&reference=${encodeURIComponent(reference)}`, { method: 'POST' })
 
 // ── operations (admin) ────────────────────────────────────────────────────────
 
@@ -371,9 +424,28 @@ export const removeFromShipment = (id: number, requestId: number) =>
 export const advanceShipment = (id: number, status: ShipmentStatus) =>
   request<AdminShipment>(`/admin/shipments/${id}/status`, { method: 'POST', body: json({ status }) })
 
-/** wa.me link with a prefilled message (digits only in the number). */
-export const whatsappLink = (phone: string, text: string) =>
-  `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`
+/** Digits for wa.me: always with the +1 country code (Bahamas, US and Canada). */
+export const whatsappNumber = (phone: string) => {
+  const d = phone.replace(/\D/g, '')
+  return d.length === 10 ? `1${d}` : d
+}
+
+/** wa.me link with a prefilled message. */
+export const whatsappLink = (phone: string, text?: string) =>
+  `https://wa.me/${whatsappNumber(phone)}${text ? `?text=${encodeURIComponent(text)}` : ''}`
+
+/** Email text -> WhatsApp text: *bold*, • bullets, and the request link (with the PDFs) added when missing. */
+export function whatsappText(body: string, link: string, hasAttachments = false) {
+  let t = body.replace(/\*\*(.+?)\*\*/g, '*$1*').replace(/^\s*[*-]\s+/gm, '• ').trim()
+  if (!t.includes(link)) {
+    t += hasAttachments ? `\n\nView your request and download your PDF here: ${link}` : `\n\nView your request: ${link}`
+  }
+  return t
+}
+
+/** Customer-facing link to a request page, for WhatsApp messages. */
+export const requestPageUrl = (id: number) =>
+  `${process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://aimoro.co')}/my-requests/${id}`
 
 // ── formatting ────────────────────────────────────────────────────────────────
 

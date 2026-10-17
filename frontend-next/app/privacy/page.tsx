@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       <section>
         <h2>What we collect</h2>
         <ul>
-          <li><strong>Account details:</strong> your name, email address, phone or WhatsApp number, island and delivery address.</li>
+          <li><strong>Account details:</strong> your name, email address, phone or WhatsApp number, country, island, state or province, and delivery address.</li>
           <li><strong>Your requests:</strong> product descriptions, links and photos you upload, quantities and budgets.</li>
           <li><strong>Orders and payments:</strong> quotes, invoices and payment status. If you pay by card, your card details are handled by our payment provider and never stored by us.</li>
           <li><strong>Messages:</strong> emails you send us.</li>

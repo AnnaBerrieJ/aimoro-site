@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import require_admin
-from ..common import parse_specs, save_photo, to_customer, upload_path
+from ..common import parse_specs, report_fee_bsd, save_photo, to_customer, upload_path
 from ..db import get_db
 from ..fx import get_cny_usd
 from ..models import PLATFORMS, REQUEST_STATUSES, Invoice, Notification, ProductRequest, Quote, SupplierListing, User
@@ -26,19 +26,20 @@ QUOTE_VALID_DAYS = 7
 def _listing_out(listing: SupplierListing, fx: float | None = None) -> ListingOut:
     out = ListingOut(
         id=listing.id, platform=listing.platform, url=listing.url, title=listing.title,
-        price_cny=listing.price_cny, china_shipping_cny=listing.china_shipping_cny,
+        currency=listing.currency or "CNY", price_cny=listing.price_cny, china_shipping_cny=listing.china_shipping_cny,
         seller_rating=listing.seller_rating, weight_kg=listing.weight_kg, notes=listing.notes,
-        public_title=listing.public_title or "", public_notes=listing.public_notes or "",
+        public_title=listing.public_title or "", preview_title=listing.preview_title or "", public_notes=listing.public_notes or "",
         specs=parse_specs(listing), is_chosen=listing.is_chosen, has_photo=bool(listing.photo_path),
         created_at=listing.created_at,
     )
-    if fx:
-        out.price_bsd_estimate = round((listing.price_cny + listing.china_shipping_cny) * fx, 2)
+    rate = 1.0 if listing.currency == "USD" else fx
+    if rate:
+        out.price_bsd_estimate = round((listing.price_cny + listing.china_shipping_cny) * rate, 2)
     return out
 
 
 def _admin_view(req: ProductRequest, fx: float | None = None) -> AdminRequestOut:
-    base = to_customer(req).model_dump()
+    base = to_customer(req, as_admin=True).model_dump()
     return AdminRequestOut(
         **base,
         admin_notes=req.admin_notes,
@@ -54,6 +55,7 @@ def _admin_view(req: ProductRequest, fx: float | None = None) -> AdminRequestOut
         notifications=[NotificationOut.model_validate(n) for n in sorted(
             _notifications_for(req), key=lambda n: n.id, reverse=True)],
         fee_waived=bool(req.fee_waived),
+        report_fee_ref=req.report_fee_ref,
     )
 
 
@@ -105,6 +107,29 @@ def update_request(request_id: int, body: AdminRequestUpdate, db: Session = Depe
         req.fee_waived = body.fee_waived
         add_event(db, req, "fee", "Friends and Family: sourcing fee waived." if body.fee_waived
                   else "Sourcing fee waiver removed.", visible=False)
+    db.commit()
+    return _admin_view(req)
+
+
+@router.post("/requests/{request_id}/report-fee", response_model=AdminRequestOut)
+def report_fee(request_id: int, background: BackgroundTasks, paid: bool = Query(default=True),
+               reference: str = Query(default="", max_length=255), db: Session = Depends(get_db)):
+    """Confirm (or undo) the report fee. Confirming unlocks the full report for the customer."""
+    req = _get_req(db, request_id)
+    if paid and req.report_paid_at is None:
+        req.report_paid_at = datetime.now(timezone.utc)
+        req.report_fee_ref = reference.strip() or None
+        msg = ("Report fee received, thank you! Your full report is ready: model names, clear photos and the "
+               "complete comparison for every option. Choose the option you want and we'll send your invoice.")
+        add_event(db, req, "report", msg)
+        n = notify_customer(db, background, req, "Your full report is ready", msg)
+        if any(q.status == "sent" for q in req.quotes):
+            n.attachments = json.dumps(["options_full"])
+    elif not paid and req.report_paid_at is not None:
+        req.report_paid_at = None
+        req.report_fee_ref = None
+        add_event(db, req, "report", "Report fee confirmation removed: the options are a preview again.",
+                  visible=False)
     db.commit()
     return _admin_view(req)
 
@@ -184,7 +209,8 @@ def _inputs(req: ProductRequest, body: QuoteBuildIn, db: Session) -> tuple[Suppl
     listing = db.get(SupplierListing, body.listing_id)
     if listing is None or listing.request_id != req.id:
         raise HTTPException(400, "Pick a listing from this request")
-    fx = body.fx_cny_usd or get_cny_usd()["rate"]
+    # USD prices need no conversion (BSD is pegged 1:1 to USD).
+    fx = 1.0 if listing.currency == "USD" else (body.fx_cny_usd or get_cny_usd()["rate"])
     return listing, QuoteInputs(
         price_cny=listing.price_cny,
         quantity=req.quantity,
@@ -240,16 +266,24 @@ def _send_options(req: ProductRequest, options: list[QuoteBuildIn], message: str
         quotes.append(q)
     req.status = "quote_ready"
 
+    fee = report_fee_bsd()
+    if req.report_paid_at is not None:
+        nxt = "Compare them side by side and choose one."
+    else:
+        nxt = (f"This is your preview report. To see the model names, photos and full comparison, and to choose "
+               f"an option, pay the ${fee:,.0f} report fee; we send your full report as soon as it's confirmed.")
     if len(quotes) == 1:
-        subject = "Your quote is ready"
-        msg = f"Your quote is ready: ${quotes[0].total_bsd:,.2f} BSD. It is valid for {QUOTE_VALID_DAYS} days."
+        subject = "Your preview quote is ready" if req.report_paid_at is None else "Your quote is ready"
+        msg = (f"We found a match for you: ${quotes[0].total_bsd:,.2f} BSD. {nxt} "
+               f"It is valid for {QUOTE_VALID_DAYS} days.")
     else:
         low = min(q.total_bsd for q in quotes)
-        subject = "Your options are ready"
-        msg = (f"We found {len(quotes)} options for you, from ${low:,.2f} BSD. "
-               f"Compare them side by side and choose one. They are valid for {QUOTE_VALID_DAYS} days.")
+        subject = "Your preview report is ready" if req.report_paid_at is None else "Your options are ready"
+        msg = (f"We found {len(quotes)} options for you, from ${low:,.2f} BSD. {nxt} "
+               f"They are valid for {QUOTE_VALID_DAYS} days.")
     add_event(db, req, "quote", msg)
-    notify_customer(db, background, req, subject, msg)
+    n = notify_customer(db, background, req, subject, msg)
+    n.attachments = json.dumps(["options_full" if req.report_paid_at is not None else "options_preview"])
     db.commit()
     return quotes
 

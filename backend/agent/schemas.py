@@ -8,7 +8,23 @@ from datetime import datetime
 
 from typing import Literal
 
+import re
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+COUNTRIES = ("Bahamas", "United States", "Canada")
+
+
+def normalize_phone(v: str) -> str:
+    """Bahamas, US and Canada all use +1: store as "+1 242-555-0100". Blank stays blank."""
+    digits = re.sub(r"\D", "", v or "")
+    if not digits:
+        return ""
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    if len(digits) != 10:
+        raise ValueError("Enter your phone number with the area code, e.g. 242 555 0100")
+    return f"+1 {digits[:3]}-{digits[3:6]}-{digits[6:]}"
 
 
 class SignupIn(BaseModel):
@@ -16,8 +32,14 @@ class SignupIn(BaseModel):
     password: str = Field(min_length=8)
     name: str = Field(min_length=1)
     phone: str = ""
-    island: str = "New Providence"
+    country: Literal["Bahamas", "United States", "Canada"] = "Bahamas"
+    island: str = "New Providence"  # island (Bahamas), state (US) or province (Canada)
     address: str = ""
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v: str) -> str:
+        return normalize_phone(v)
 
     @field_validator("email")
     @classmethod
@@ -40,6 +62,7 @@ class UserOut(BaseModel):
     role: str
     name: str
     phone: str
+    country: str | None = "Bahamas"
     island: str
     address: str
 
@@ -85,8 +108,9 @@ class CustomerOptionOut(BaseModel):
     option_number: int
     title: str
     notes: str
-    specs: list[SpecRow]
+    specs: list[SpecRow]  # when locked: label and "requested" only; "found" is blank
     has_photo: bool
+    locked: bool = False  # preview: details stay hidden until the report fee is paid
     product_cost_bsd: float
     shipping_bsd: float
     service_fee_bsd: float
@@ -158,6 +182,9 @@ class RequestOut(BaseModel):
     options: list[CustomerOptionOut] = []
     timeline: list[EventOut] = []
     warehouse_photos: list[WarehousePhotoOut] = []
+    report_unlocked: bool = False
+    report_fee_bsd: float = 100
+    report_paid_at: datetime | None = None
 
 
 # ---------- admin ----------
@@ -166,6 +193,7 @@ class ListingIn(BaseModel):
     platform: str
     url: str = ""
     title: str = ""
+    currency: Literal["CNY", "USD"] = "CNY"  # currency of price_cny and china_shipping_cny
     price_cny: float = Field(ge=0)
     china_shipping_cny: float = Field(default=0, ge=0)
     seller_rating: float | None = Field(default=None, ge=0, le=5)
@@ -173,6 +201,7 @@ class ListingIn(BaseModel):
     notes: str = ""
     # customer-facing
     public_title: str = Field(default="", max_length=120)
+    preview_title: str = Field(default="", max_length=120)
     public_notes: str = Field(default="", max_length=600)
     specs: list[SpecRow] = Field(default=[], max_length=12)
 
@@ -221,6 +250,7 @@ class CustomerBrief(BaseModel):
     name: str
     email: str
     phone: str
+    country: str | None = "Bahamas"
     island: str
     address: str
 
@@ -302,6 +332,7 @@ class AdminRequestOut(RequestOut):
     events: list[AdminEventOut] = []
     notifications: list[NotificationOut] = []
     fee_waived: bool = False
+    report_fee_ref: str | None = None
 
 
 class OrderIn(BaseModel):

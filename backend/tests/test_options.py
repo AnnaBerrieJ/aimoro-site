@@ -72,10 +72,32 @@ def test_three_options_side_by_side(u):
     quotes = r.json()
     assert [q["option_number"] for q in quotes] == [1, 2, 3]
 
-    # customer view
+    # preview: before the report fee, what we found, match status, notes and photos are withheld
     r = client.get(f"/requests/{rid}", headers=u["cust"])
     body = r.json()
-    assert body["status"] == "quote_ready"
+    assert body["status"] == "quote_ready" and body["report_unlocked"] is False and body["report_fee_bsd"] == 100
+    locked = body["options"]
+    assert [o["title"] for o in locked] == ["Option 1", "Option 2", "Option 3"]
+    assert all(o["locked"] and not o["has_photo"] and o["notes"] == "" for o in locked)
+    assert all(sp["found"] == "" and sp["requested"] for sp in locked[0]["specs"])
+    raw = r.text
+    for secret in ["Natural rattan tote", "Premium woven bag", "Lined inside"] + [sp["found"] for sp in SPECS if sp["found"]]:
+        assert secret not in raw, f"preview leaks {secret}"
+    assert client.get(f"/requests/{rid}/options/{locked[0]['id']}/photo", headers=u["cust"]).status_code == 404
+    pv = client.get(f"/requests/{rid}/options.pdf", headers=u["cust"])
+    assert pv.status_code == 200 and "preview" in pv.headers["content-disposition"]  # forced preview
+    assert client.post(f"/requests/{rid}/approve?quote_id={locked[1]['id']}", headers=u["cust"]).status_code == 400
+    notes = client.get(f"/admin/requests/{rid}", headers=u["admin"]).json()["notifications"]
+    assert any(n["subject"].startswith("Your preview report is ready") for n in notes)
+
+    # report fee confirmed -> full report
+    r = client.post(f"/admin/requests/{rid}/report-fee?reference=PayPal%20123", headers=u["admin"])
+    assert r.status_code == 200 and r.json()["report_fee_ref"] == "PayPal 123"
+    assert any(n["subject"].startswith("Your full report is ready") and n["attachments"] == ["options_full"]
+               for n in r.json()["notifications"])
+    r = client.get(f"/requests/{rid}", headers=u["cust"])
+    body = r.json()
+    assert body["report_unlocked"] is True
     opts = body["options"]
     assert [o["title"] for o in opts] == ["Natural rattan tote", "Premium woven bag", "Budget straw bag"]
     assert opts[0]["specs"][0] == SPECS[0] and opts[0]["has_photo"] is True
@@ -83,8 +105,6 @@ def test_three_options_side_by_side(u):
     raw = r.text.lower()
     for secret in ["taobao", "item.taobao", "秘密", "藤编", "price_cny", "slow to reply", "margin", "listing_id"]:
         assert secret not in raw, f"customer response leaks {secret}"
-    notes = client.get(f"/admin/requests/{rid}", headers=u["admin"]).json()["notifications"]
-    assert any(n["subject"].startswith("Your options are ready") for n in notes)
 
     # photos: owner yes, other customer no
     qid2 = opts[1]["id"]
@@ -118,6 +138,7 @@ def test_single_quote_still_works(u):
     lid = client.post(f"/admin/requests/{rid}/listings", headers=u["admin"],
                       json={"platform": "1688", "price_cny": 50}).json()["id"]
     client.post(f"/admin/requests/{rid}/quote", headers=u["admin"], json={"listing_id": lid})
+    client.post(f"/admin/requests/{rid}/report-fee", headers=u["admin"])
     b = client.get(f"/requests/{rid}", headers=u["cust"]).json()
     assert len(b["options"]) == 1 and b["options"][0]["title"] == "Desk lamp"  # falls back to their wording
     assert b["options"][0]["has_photo"] is False

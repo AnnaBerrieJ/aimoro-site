@@ -7,7 +7,7 @@ from fpdf import FPDF
 from fpdf.fonts import FontFace
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from .common import option_out, upload_path
+from .common import option_out, preview_title, report_fee_bsd, upload_path
 from .invoice_pdf import (CONTACT_EMAIL, CONTACT_WHATSAPP, PAYMENT_METHODS, LIGHT, LOGO_PATH, NAVY, RED, SAND, SITE, SLATE, _date, _delivery_address,
                           _money)
 from .models import ProductRequest, Quote
@@ -78,9 +78,13 @@ def _blurred_text(text: str) -> Image.Image:
     return im.filter(ImageFilter.GaussianBlur(12))
 
 
-def _hidden_in_preview(i: int) -> bool:
-    """Preview keeps the first two rows readable and blurs the rest."""
-    return i >= 2
+def _blurred_word(text: str, colour) -> Image.Image:
+    """A blurred match word (Match / Close / Different) for the preview."""
+    font = ImageFont.load_default(size=58)
+    im = Image.new("RGBA", (420, 100), (255, 255, 255, 0))
+    ImageDraw.Draw(im).text((40, 18), text, fill=tuple(colour) + (255,), font=font, stroke_width=3,
+                            stroke_fill=tuple(colour) + (255,))
+    return im.filter(ImageFilter.GaussianBlur(12))
 
 
 def _image_box(pdf: FPDF, path: str | None, x: float, y: float, w: float, h: float, label: str,
@@ -108,7 +112,7 @@ def _image_box(pdf: FPDF, path: str | None, x: float, y: float, w: float, h: flo
             img = img.filter(ImageFilter.GaussianBlur(max(iw, ih) / 14))
         pdf.image(img, x=x + (w - dw) / 2, y=top + (h - dh) / 2, w=dw, h=dh)
         if blur:
-            _locked_label(pdf, x + w / 2, top + h / 2, "Full photo after you confirm")
+            _locked_label(pdf, x + w / 2, top + h / 2, "Photo in the full report")
     else:
         pdf.set_xy(x + 5, top + h / 2 - 8)
         pdf.set_font("Helvetica", "", 9.5)
@@ -190,7 +194,9 @@ def _option(pdf: FPDF, req: ProductRequest, q: Quote, single: bool, photo_h: flo
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("Helvetica", "B", 11.5)
     label = "Our match" if single else f"Option {o.option_number}"
-    pdf.cell(W - 60, 10, _latin1(f"  {label}:  {o.title}")[:80], fill=True)
+    title = preview_title(q) if preview else o.title
+    head = f"  {label}" if preview and title == label else f"  {label}:  {title}"
+    pdf.cell(W - 60, 10, _latin1(head)[:80], fill=True)
     pdf.cell(60, 10, f"{_total_text(o)}  ", align="R", fill=True, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
@@ -223,11 +229,12 @@ def _option(pdf: FPDF, req: ProductRequest, q: Quote, single: bool, photo_h: flo
                 row = table.row()
                 row.cell(_latin1(s.label), style=FontFace(emphasis="BOLD", color=NAVY))
                 row.cell(_latin1(s.requested or "-"), style=FontFace(color=NAVY))
-                if preview and _hidden_in_preview(i):
+                if preview:  # what we found and how well it matches stay hidden until the report fee
                     row.cell(img=_blurred_text(_latin1(s.found or "-")), img_fill_width=True)
+                    row.cell(img=_blurred_word("Match", SLATE), img_fill_width=True)  # same for every row: no hint
                 else:
                     row.cell(_latin1(s.found or "-"), style=FontFace(color=NAVY))
-                row.cell(word, style=FontFace(emphasis="BOLD", color=colour))
+                    row.cell(word, style=FontFace(emphasis="BOLD", color=colour))
         pdf.ln(4)
 
     # Notes (left) and price breakdown (right), side by side
@@ -282,7 +289,9 @@ def _at_a_glance(pdf: FPDF, req: ProductRequest, opts: list[Quote], preview: boo
         table.row(["Option", "Product", "Matches your request", "Total (BSD)"])
         for q in opts:
             o = option_out(req, q)
-            if o.specs:
+            if preview:
+                fit, colour = "In the full report", SLATE
+            elif o.specs:
                 n = sum(1 for sp in o.specs if sp.match == "match")
                 close = sum(1 for sp in o.specs if sp.match == "close")
                 fit = f"{n} of {len(o.specs)} match" + (f", {close} close" if close else "")
@@ -291,15 +300,16 @@ def _at_a_glance(pdf: FPDF, req: ProductRequest, opts: list[Quote], preview: boo
                 fit, colour = "-", SLATE
             row = table.row()
             row.cell(f"Option {o.option_number}", style=FontFace(emphasis="BOLD", color=NAVY))
-            row.cell(_latin1(o.title), style=FontFace(color=NAVY))
+            row.cell(_latin1(preview_title(q) if preview else o.title), style=FontFace(color=NAVY))
             row.cell(fit, style=FontFace(emphasis="BOLD", color=colour))
             row.cell(_total_text(o), style=FontFace(emphasis="BOLD", color=RED))
     pdf.ln(4)
     pdf.set_font("Helvetica", "", 9.5)
     pdf.set_text_color(*SLATE)
     pdf.multi_cell(W, 5, _latin1(
-        "This is a preview. Each option has its own page with a comparison. Model names, photos and the "
-        "blurred details are in the full report, which we send after you confirm your order." if preview else
+        "This is a preview: it shows what you asked for and the price of each option. What we found, how well "
+        f"it matches, the model names and photos are in the full report, which we send as soon as the "
+        f"{_money(report_fee_bsd())} report fee is confirmed." if preview else
         "Each option is shown on its own page, with photos side by side and a detailed comparison."),
         align="L", new_x="LMARGIN", new_y="NEXT")
     message = (opts[0].message or "").strip()
@@ -339,6 +349,17 @@ def _photo_thumb(pdf: FPDF, path: str | None, x: float, y: float, w: float, h: f
 def _closing(pdf: FPDF, opts: list[Quote], single: bool, preview: bool = False) -> None:
     """Sand call-to-action box: on page 1 for several options, after the quote for one."""
     W = pdf.w - 2 * L
+    if preview:
+        fee = _money(report_fee_bsd())
+        text = _latin1(
+            f"To see the full report and choose your option, pay the {fee} report fee by {PAYMENT_METHODS}; we "
+            f"send the payment details by WhatsApp. Reply by email or WhatsApp, or visit {SITE}, by "
+            f"{_date(opts[0].expires_at)}. As soon as it's confirmed, we send your full report. Then you choose "
+            f"your option and we send your invoice. The report fee is separate from the price of your order. "
+            "Prices are in BSD (equal to US dollars)"
+            + (" and shipping will be confirmed before you pay." if any(_ship_tbd(q) for q in opts) else
+               " and include delivery to your door."))
+        return _sand_box(pdf, W, "Ready for your full report?", text)
     text = _latin1(
         ("Choose your option" if not single else "Approve your quote") +
         f" at {SITE}, or reply by email or WhatsApp, by {_date(opts[0].expires_at)}. "
@@ -348,6 +369,10 @@ def _closing(pdf: FPDF, opts: list[Quote], single: bool, preview: bool = False) 
            if any(_ship_tbd(q) for q in opts) else
            "Prices are in BSD (equal to US dollars) and include delivery. ")
         + f"You can pay by {PAYMENT_METHODS}; we send the payment details by WhatsApp.")
+    _sand_box(pdf, W, "Ready to order?" if not single else "Happy with it?", text)
+
+
+def _sand_box(pdf: FPDF, W: float, heading: str, text: str) -> None:
     pdf.set_font("Helvetica", "", 9.5)
     lines = len(pdf.multi_cell(W - 12, 5, text, dry_run=True, output="LINES"))
     h = 14 + lines * 5
@@ -360,7 +385,7 @@ def _closing(pdf: FPDF, opts: list[Quote], single: bool, preview: bool = False) 
     pdf.set_xy(L + 6, y + 4)
     pdf.set_font("Helvetica", "B", 10.5)
     pdf.set_text_color(*NAVY)
-    pdf.cell(W - 12, 5.5, "Ready to order?" if not single else "Happy with it?")
+    pdf.cell(W - 12, 5.5, heading)
     pdf.set_xy(L + 6, y + 10)
     pdf.set_font("Helvetica", "", 9.5)
     pdf.multi_cell(W - 12, 5, text, align="L")

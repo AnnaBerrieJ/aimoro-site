@@ -22,6 +22,18 @@ def aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def report_fee_bsd() -> float:
+    """Fee that unlocks the full report (model names, photos, full comparison)."""
+    try:
+        return float(os.getenv("REPORT_FEE", os.getenv("PHASE2_FEE", "100")))
+    except ValueError:
+        return 100.0
+
+
+def report_unlocked(req: ProductRequest) -> bool:
+    return req.report_paid_at is not None
+
+
 def is_expired(quote: Quote) -> bool:
     return aware(quote.expires_at) < datetime.now(timezone.utc)
 
@@ -101,17 +113,29 @@ def current_quote(req: ProductRequest) -> Quote | None:
     return opts[0] if opts else None
 
 
-def option_out(req: ProductRequest, q: Quote) -> CustomerOptionOut:
+def preview_title(q: Quote) -> str:
+    """General description for the blurred preview (no model name)."""
+    listing = q.listing
+    return ((listing.preview_title if listing else None) or "").strip() or f"Option {q.option_number or 1}"
+
+
+def option_out(req: ProductRequest, q: Quote, locked: bool = False) -> CustomerOptionOut:
+    """locked=True (preview): only the customer's own request and the prices; what we found,
+    match status, notes and photo are withheld until the report fee is paid."""
     listing = q.listing
     status = "expired" if q.status == "sent" and is_expired(q) else q.status
+    specs = parse_specs(listing)
+    if locked:
+        specs = [SpecRow(label=r.label, requested=r.requested) for r in specs]
     return CustomerOptionOut(
         id=q.id,
         option_number=q.option_number or 1,
         # Fall back to the customer's own wording, never the supplier's listing title.
-        title=((listing.public_title if listing else None) or req.product_name).strip(),
-        notes=((listing.public_notes if listing else None) or "").strip(),
-        specs=parse_specs(listing),
-        has_photo=bool(listing and listing.photo_path),
+        title=preview_title(q) if locked else ((listing.public_title if listing else None) or req.product_name).strip(),
+        notes="" if locked else ((listing.public_notes if listing else None) or "").strip(),
+        specs=specs,
+        has_photo=bool(listing and listing.photo_path) and not locked,
+        locked=locked,
         product_cost_bsd=q.product_cost_bsd,
         shipping_bsd=q.shipping_bsd,
         service_fee_bsd=q.service_fee_bsd,
@@ -134,7 +158,10 @@ def delivery_address(req: ProductRequest) -> str:
     return (req.delivery_address or req.user.address or "").strip()
 
 
-def to_customer(req: ProductRequest) -> RequestOut:
+def to_customer(req: ProductRequest, as_admin: bool = False) -> RequestOut:
+    """Customer view. Until the report fee is paid the options are a locked preview
+    (the admin view always gets the full details)."""
+    locked = not as_admin and not report_unlocked(req)
     q = current_quote(req)
     quote_out = None
     if q is not None:
@@ -158,7 +185,10 @@ def to_customer(req: ProductRequest) -> RequestOut:
         quote=quote_out,
         invoice=invoice_out,
         shipment=CustomerShipmentOut.model_validate(req.shipment) if req.shipment else None,
-        options=[option_out(req, o) for o in active_options(req)],
+        options=[option_out(req, o, locked=locked) for o in active_options(req)],
         timeline=[EventOut.model_validate(e) for e in req.events if e.customer_visible],
         warehouse_photos=[WarehousePhotoOut.model_validate(p) for p in req.warehouse_photos],
+        report_unlocked=report_unlocked(req),
+        report_fee_bsd=report_fee_bsd(),
+        report_paid_at=req.report_paid_at,
     )

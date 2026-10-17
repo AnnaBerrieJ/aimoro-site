@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { RequireAuth } from '@/components/agent/RequireAuth'
 import { Card, ErrorNote, StatusSteps, primaryBtn, secondaryBtn } from '@/components/agent/ui'
 import { OptionsView } from '@/components/agent/OptionsView'
+import { FlowSteps } from '@/components/agent/FlowSteps'
 import { WarehousePhotoGrid } from '@/components/agent/WarehousePhotos'
 import { ShipmentSteps, Timeline } from '@/components/agent/Timeline'
 import * as api from '@/lib/agent'
@@ -61,14 +62,14 @@ function RequestDetail() {
       <Link href="/my-requests" className="text-sm font-semibold text-slate-500 hover:text-slate-800">← My requests</Link>
       {params.get('new') && (
         <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-          Request received. We'll start sourcing and send your quote here, usually within 1–2 days.
+          Request received. We'll start sourcing and send your preview report here, usually within 1–2 days.
         </p>
       )}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900">{req.product_name}</h1>
         <p className="text-xs text-slate-500 mt-1">Request #{req.id} · {shortDate(req.created_at)}</p>
       </div>
-      <StatusSteps status={req.status} />
+      {req.status === 'cancelled' ? <StatusSteps status={req.status} /> : <FlowSteps req={req} />}
       <ErrorNote message={error} />
 
       {req.options.length > 0 && (
@@ -123,8 +124,8 @@ function RequestDetail() {
 
       {req.warehouse_photos.length > 0 && (
         <Card>
-          <h2 className="font-bold text-slate-900">Warehouse check</h2>
-          <p className="text-sm text-slate-600 mb-3">We checked your order at our China warehouse. Here is exactly what arrived. Tap a photo to see it full size, or play a video.</p>
+          <h2 className="font-bold text-slate-900">Quality check</h2>
+          <p className="text-sm text-slate-600 mb-3">We checked your order at our China warehouse before shipping. Here is exactly what arrived. Tap a photo to see it full size, or play a video.</p>
           <WarehousePhotoGrid requestId={req.id} photos={req.warehouse_photos} />
         </Card>
       )}

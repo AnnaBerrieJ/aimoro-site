@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from .. import payments
 from ..auth import get_current_user
-from ..common import (active_options, current_quote, get_request_for, is_expired, save_photo, to_customer,
-                      upload_path)
+from ..common import (active_options, current_quote, get_request_for, is_expired, report_fee_bsd, report_unlocked,
+                      save_photo, to_customer, upload_path)
 from ..db import get_db
 from ..invoice_pdf import build_invoice_pdf
 from ..options_pdf import build_options_pdf
@@ -35,7 +35,7 @@ def create_request(body: RequestIn, background: BackgroundTasks,
     db.flush()
     add_event(db, req, "created", "Request received. We're looking for the best supplier for you.")
     notify_admins(db, background, req, f"New request #{req.id}: {req.product_name}",
-                  f"{user.name} ({user.island}) wants {req.quantity} x {req.product_name}.")
+                  f"{user.name} ({', '.join(x for x in (user.island, user.country) if x)}) wants {req.quantity} x {req.product_name}.")
     db.commit()
     db.refresh(req)
     return to_customer(req)
@@ -51,7 +51,7 @@ def my_requests(user: User = Depends(get_current_user), db: Session = Depends(ge
 
 @router.get("/requests/{request_id}", response_model=RequestOut)
 def get_request(request_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return to_customer(get_request_for(db, request_id, user))
+    return to_customer(get_request_for(db, request_id, user), as_admin=user.role == "admin")
 
 
 @router.post("/requests/{request_id}/photo", response_model=RequestOut)
@@ -87,7 +87,8 @@ def option_photo(request_id: int, quote_id: int, user: User = Depends(get_curren
     """Photo of a found product. Customers only see photos of options actually sent to them."""
     req = get_request_for(db, request_id, user)
     quote = next((q for q in req.quotes if q.id == quote_id), None)
-    visible = quote is not None and (user.role == "admin" or quote.status in ("sent", "approved"))
+    visible = quote is not None and (user.role == "admin" or (
+        quote.status in ("sent", "approved") and report_unlocked(req)))
     if not visible or not quote.listing or not quote.listing.photo_path:
         raise HTTPException(404, "No photo")
     return FileResponse(upload_path(quote.listing.photo_path))
@@ -96,11 +97,14 @@ def option_photo(request_id: int, quote_id: int, user: User = Depends(get_curren
 @router.get("/requests/{request_id}/options.pdf")
 def options_pdf(request_id: int, preview: bool = Query(default=False),
                 user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """preview=true: blurred photos and some details, for sharing before the order is confirmed."""
+    """preview=true: blurred photos and details. Customers only get the full report once the
+    report fee is paid."""
     req = get_request_for(db, request_id, user)
     opts = active_options(req)
     if not opts:
         raise HTTPException(404, "There are no options to show yet")
+    if user.role != "admin" and not report_unlocked(req):
+        preview = True
     pdf = build_options_pdf(req, opts, preview=preview)
     suffix = "-preview" if preview else ""
     return Response(content=pdf, media_type="application/pdf",
@@ -130,6 +134,9 @@ def approve_quote(request_id: int, quote_id: int | None = Query(default=None),
         return to_customer(req)
     if not opts or req.status != "quote_ready":
         raise HTTPException(400, "There is no quote to approve")
+    if not report_unlocked(req):
+        raise HTTPException(400, f"Your full report unlocks once the ${report_fee_bsd():,.0f} report fee is "
+                                 "confirmed. You can choose your option after that.")
     if quote_id is None:
         if len(opts) > 1:
             raise HTTPException(400, "Please choose one of the options")

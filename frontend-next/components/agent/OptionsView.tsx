@@ -11,12 +11,23 @@ const MATCH_STYLES: Record<MatchLevel, string> = {
   different: 'bg-red-50 text-red-600 border-red-200',
 }
 
-function MatchBadge({ m }: { m: MatchLevel }) {
+/** Placeholder for details kept for the full report (the real text is never sent to the browser). */
+function Hidden({ w = 'w-28' }: { w?: string }) {
+  return (
+    <span className="inline-flex items-center">
+      <span aria-hidden className={`inline-block h-3.5 ${w} rounded bg-slate-300/80 blur-[3px]`} />
+      <span className="sr-only">Shown in the full report</span>
+    </span>
+  )
+}
+
+function MatchBadge({ m, locked }: { m: MatchLevel; locked?: boolean }) {
+  if (locked) return <span aria-label="Shown in the full report" className="inline-flex shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-transparent blur-[2px] select-none">Match</span>
   return <span className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${MATCH_STYLES[m]}`}>{MATCH_LABELS[m]}</span>
 }
 
 function matchSummary(o: CustomerOption): { text: string; m: MatchLevel } | null {
-  if (!o.specs.length) return null
+  if (!o.specs.length || o.locked) return null
   const n = o.specs.filter(s => s.match === 'match').length
   const close = o.specs.filter(s => s.match === 'close').length
   return {
@@ -36,12 +47,17 @@ function useFileUrl(path: string | null) {
   return url
 }
 
-function PhotoBox({ url, label, fallback }: { url: string | null; label: string; fallback: string }) {
+function PhotoBox({ url, label, fallback, locked }: { url: string | null; label: string; fallback: string; locked?: boolean }) {
   return (
     <figure className="space-y-1.5">
       <figcaption className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</figcaption>
-      <div className="aspect-[4/3] rounded-2xl bg-slate-100 border border-slate-100 flex items-center justify-center overflow-hidden">
-        {url ? <img src={url} alt={label} className="w-full h-full object-contain" />
+      <div className="relative aspect-[4/3] rounded-2xl bg-slate-100 border border-slate-100 flex items-center justify-center overflow-hidden">
+        {locked ? (
+          <>
+            <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-slate-300 via-slate-100 to-slate-300 blur-md" />
+            <span className="relative rounded-full border border-[#c40000] bg-white px-3 py-1 text-xs font-semibold text-[#c40000]">Photo in the full report</span>
+          </>
+        ) : url ? <img src={url} alt={label} className="w-full h-full object-contain" />
           : <span className="text-xs text-slate-500 text-center px-4 line-clamp-4">{fallback}</span>}
       </div>
     </figure>
@@ -56,11 +72,12 @@ function Comparison({ o }: { o: CustomerOption }) {
         <li key={i} className="py-2.5 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{s.label}</span>
-            <MatchBadge m={s.match} />
+            <MatchBadge m={s.match} locked={o.locked} />
           </div>
           <div className="grid grid-cols-[90px_1fr] gap-x-2 gap-y-0.5">
             <span className="text-slate-500">You asked</span><span className="text-slate-800">{s.requested || '—'}</span>
-            <span className="text-slate-500">We found</span><span className="font-semibold text-slate-900">{s.found || '—'}</span>
+            <span className="text-slate-500">We found</span>
+            {o.locked ? <Hidden /> : <span className="font-semibold text-slate-900">{s.found || '—'}</span>}
           </div>
         </li>
       ))}
@@ -94,7 +111,8 @@ export function OptionsView({ req, customerPhotoUrl, busy, onChoose, onDownload 
   const shown = approved ? [approved] : opts
   const single = shown.length === 1
   const expired = !approved && opts.every(o => o.status === 'expired')
-  const canChoose = req.status === 'quote_ready' && !approved && !expired
+  const locked = !req.report_unlocked
+  const canChoose = req.status === 'quote_ready' && !approved && !expired && !locked
   const message = req.quote?.message
 
   return (
@@ -102,15 +120,16 @@ export function OptionsView({ req, customerPhotoUrl, busy, onChoose, onDownload 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-extrabold text-slate-900">
-            {approved ? 'Your choice' : single ? 'Your quote' : `We found ${shown.length} options for you`}
+            {approved ? 'Your choice' : locked ? 'Your preview report' : single ? 'Your quote' : `We found ${shown.length} options for you`}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             {approved ? 'Approved. Your invoice is below.' : expired ? 'Expired' : `Valid until ${shortDate(shown[0].expires_at)}`}
-            {!approved && !single && ' · Compare them with what you asked for and choose one.'}
+            {!approved && !single && !locked && ' · Compare them with what you asked for and choose one.'}
           </p>
         </div>
-        <button type="button" className={secondaryBtn} onClick={onDownload}>Download PDF</button>
+        <button type="button" className={secondaryBtn} onClick={onDownload}>{locked ? 'Download preview PDF' : 'Download PDF'}</button>
       </div>
+      {locked && !expired && <ReportFeeBanner req={req} />}
       {message && !approved && <p className="text-sm text-slate-700 bg-slate-50 rounded-xl px-3 py-2">{message}</p>}
 
       {single ? (
@@ -140,6 +159,24 @@ export function OptionsView({ req, customerPhotoUrl, busy, onChoose, onDownload 
   )
 }
 
+function ReportFeeBanner({ req }: { req: ProductRequest }) {
+  const fee = bsd(req.report_fee_bsd).replace('.00', '')
+  const text = `Hi AIMORO, I'd like to pay the ${fee} report fee for my request #${req.id} (${req.product_name}): ${api.requestPageUrl(req.id)}`
+  return (
+    <div className="rounded-2xl border border-[#c40000]/30 bg-red-50/60 p-4 space-y-2">
+      <p className="text-sm font-bold text-slate-900">Unlock your full report: {fee}</p>
+      <p className="text-sm text-slate-700">
+        This preview shows what you asked for and the price of each option. What we found, how well it matches,
+        the model names and photos are in the full report. Pay the {fee} report fee by PayPal, Zelle or RBC bank
+        transfer; as soon as it&apos;s confirmed, your full report unlocks here and you can choose your option.
+        The report fee is separate from the price of your order.
+      </p>
+      <a href={api.whatsappLink(api.CONTACT_WHATSAPP, text)} target="_blank" rel="noopener noreferrer"
+        className={`${primaryBtn} !bg-[#25D366] hover:!bg-[#1da851]`}>Get payment details on WhatsApp</a>
+    </div>
+  )
+}
+
 function OptionCard({ req, o, busy, canChoose, onChoose }: {
   req: ProductRequest; o: CustomerOption; busy: boolean; canChoose: boolean; onChoose: (id: number) => void
 }) {
@@ -151,8 +188,9 @@ function OptionCard({ req, o, busy, canChoose, onChoose }: {
         <span className="text-xs font-bold uppercase tracking-widest text-[#c40000]">Option {o.option_number}</span>
         {summary && <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${MATCH_STYLES[summary.m]}`}>{summary.text}</span>}
       </div>
-      <PhotoBox url={photo} label="We found" fallback="Photo not available" />
+      <PhotoBox url={photo} label="We found" fallback="Photo not available" locked={o.locked} />
       <h3 className="font-bold text-slate-900 leading-snug">{o.title}</h3>
+      {o.locked && <p className="-mt-2 text-xs font-semibold text-slate-500">Match: shown in the full report</p>}
       <Comparison o={o} />
       {o.notes && <p className="text-sm text-slate-600">{o.notes}</p>}
       <div className="mt-auto space-y-3">
@@ -177,7 +215,7 @@ function SingleOption({ req, o, customerPhotoUrl, busy, canChoose, onChoose }: {
       <h3 className="text-base font-bold text-slate-900">{o.title}</h3>
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <PhotoBox url={customerPhotoUrl} label="You asked for" fallback={req.description || req.product_name} />
-        <PhotoBox url={photo} label="We found" fallback="Photo not available" />
+        <PhotoBox url={photo} label="We found" fallback="Photo not available" locked={o.locked} />
       </div>
       {o.specs.length > 0 && (
         <div className="overflow-x-auto">
@@ -192,8 +230,8 @@ function SingleOption({ req, o, customerPhotoUrl, busy, canChoose, onChoose }: {
                 <tr key={i} className="border-b border-slate-100">
                   <td className="py-2.5 pr-2 font-semibold text-slate-900">{s.label}</td>
                   <td className="pr-2 text-slate-700">{s.requested || '—'}</td>
-                  <td className="pr-2 font-semibold text-slate-900">{s.found || '—'}</td>
-                  <td className="text-right"><MatchBadge m={s.match} /></td>
+                  <td className="pr-2 font-semibold text-slate-900">{o.locked ? <Hidden /> : (s.found || '—')}</td>
+                  <td className="text-right"><MatchBadge m={s.match} locked={o.locked} /></td>
                 </tr>
               ))}
             </tbody>

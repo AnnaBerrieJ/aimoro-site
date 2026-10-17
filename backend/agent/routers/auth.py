@@ -15,12 +15,16 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def signup(body: SignupIn, background: BackgroundTasks, db: Session = Depends(get_db)):
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(409, "An account with this email already exists")
+    is_admin = body.email in admin_emails()
+    if not is_admin and not body.phone:
+        raise HTTPException(400, "Please add your phone / WhatsApp number with the area code")
     user = User(
         email=body.email,
         password_hash=hash_password(body.password),
-        role="admin" if body.email in admin_emails() else "customer",
+        role="admin" if is_admin else "customer",
         name=body.name.strip(),
         phone=body.phone.strip(),
+        country=body.country,
         island=body.island.strip(),
         address=body.address.strip(),
     )

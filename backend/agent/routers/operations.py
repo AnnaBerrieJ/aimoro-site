@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from ..auth import require_admin
 from ..db import get_db
 from ..common import delivery_address, save_media, upload_path
+from ..email_templates import feedback_line
 from ..models import SHIPMENT_METHODS, SHIPMENT_STATUSES, ProductRequest, Shipment, WarehousePhoto
 from ..notify import add_event, notify_customer
 from ..schemas import (AdminRequestOut, AdminShipmentOut, OrderIn, ShipmentIn, ShipmentRequestBrief,
@@ -86,10 +87,10 @@ async def add_warehouse_photos(request_id: int, background: BackgroundTasks, fil
         db.add(WarehousePhoto(request_id=req.id, path=path, media_type=kind, caption=caption.strip()[:200]))
     photos, videos = kinds.count("image"), kinds.count("video")
     parts = [f"{n} {word}{'s' if n != 1 else ''}" for n, word in ((photos, "photo"), (videos, "video")) if n]
-    msg = (f"We checked your order at our China warehouse. {' and '.join(parts)} of your item "
+    msg = (f"Quality check done at our China warehouse. {' and '.join(parts)} of your item "
            f"{'are' if len(files) != 1 else 'is'} now on your request page.")
     add_event(db, req, "warehouse_photos", msg)
-    notify_customer(db, background, req, "Warehouse check photos", msg)
+    notify_customer(db, background, req, "Quality check photos and videos", msg)
     db.commit()
     db.refresh(req)
     return _admin_view(req)
@@ -118,7 +119,7 @@ def _shipment_out(s: Shipment) -> AdminShipmentOut:
     out = AdminShipmentOut(**fields)
     out.requests = [ShipmentRequestBrief(
         id=r.id, product_name=r.product_name, quantity=r.quantity, status=r.status,
-        customer_name=r.user.name, customer_island=r.user.island, delivery_address=delivery_address(r),
+        customer_name=r.user.name, customer_island=", ".join(x for x in (r.user.island, r.user.country) if x), delivery_address=delivery_address(r),
         warehouse_arrived=r.warehouse_arrived_at is not None,
     ) for r in sorted(s.requests, key=lambda r: r.id)]
     return out
@@ -147,7 +148,7 @@ def ready_to_ship(db: Session = Depends(get_db)):
         ProductRequest.status == "ordered", ProductRequest.shipment_id.is_(None)).order_by(ProductRequest.id)).all()
     return [ShipmentRequestBrief(
         id=r.id, product_name=r.product_name, quantity=r.quantity, status=r.status,
-        customer_name=r.user.name, customer_island=r.user.island, delivery_address=delivery_address(r),
+        customer_name=r.user.name, customer_island=", ".join(x for x in (r.user.island, r.user.country) if x), delivery_address=delivery_address(r),
         warehouse_arrived=r.warehouse_arrived_at is not None) for r in rows]
 
 
@@ -229,7 +230,7 @@ def advance_shipment(shipment_id: int, body: ShipmentStatusIn, background: Backg
 
     how = METHOD_LABELS.get(s.method, s.method)
     track = f" Tracking: {s.carrier} {s.tracking_number}".rstrip() + "." if s.tracking_number else ""
-    eta = f" Estimated arrival: {_pretty_date(s.eta)}." if s.eta else ""
+    eta = f" Expected arrival: {_pretty_date(s.eta)}." if s.eta else ""
 
     s.status = body.status
     if body.status == "in_transit":
@@ -249,6 +250,7 @@ def advance_shipment(shipment_id: int, body: ShipmentStatusIn, background: Backg
             subject = "Delivered"
             msg = f"Delivered to {delivery_address(req) or 'your address'}. Thank you for shopping with AIMORO!"
         add_event(db, req, f"shipment_{body.status}", msg)
-        notify_customer(db, background, req, subject, msg)
+        email_msg = f"{msg}\n\n{feedback_line()}" if body.status == "delivered" else msg
+        notify_customer(db, background, req, subject, email_msg)
     db.commit()
     return _shipment_out(s)

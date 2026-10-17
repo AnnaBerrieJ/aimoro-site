@@ -5,7 +5,7 @@ Bodies are plain text: a blank line starts a paragraph, "* " lines are bullets,
 """
 import os
 
-from .common import active_options, delivery_address, option_out
+from .common import active_options, delivery_address, option_out, report_fee_bsd, report_unlocked
 from .models import ProductRequest
 from .notify import CONTACT_WHATSAPP, SITE_URL
 
@@ -43,11 +43,15 @@ def _questions(valid_until: str = "") -> str:
             f"at {CONTACT_WHATSAPP}.")
 
 
-def _option_lines(req: ProductRequest) -> tuple[list[str], str]:
+FEEDBACK_URL = os.getenv("FEEDBACK_URL", "").strip()
+
+
+def _option_lines(req: ProductRequest, locked: bool = False) -> tuple[list[str], str]:
+    """One bullet per option. locked=True uses the preview descriptions (no model names)."""
     opts = active_options(req)
     lines = []
     for q in opts:
-        o = option_out(req, q)
+        o = option_out(req, q, locked=locked)
         price = _money(o.total_bsd) + (" + shipping" if not o.shipping_bsd else "")
         lines.append(f"* Option {o.option_number}: {o.title} ({price})")
     valid = _date(opts[0].expires_at) if opts else ""
@@ -59,54 +63,64 @@ def _latest_invoice(req: ProductRequest):
     return sorted(invs, key=lambda i: i.id)[-1] if invs else None
 
 
+def feedback_line() -> str:
+    """Closing line of every delivered email."""
+    where = f"leave a quick review here: {FEEDBACK_URL}" if FEEDBACK_URL else "simply reply to this email"
+    return f"**How did we do?** We would love your feedback: {where}. It helps us serve you better."
+
+
 def email_templates(req: ProductRequest) -> list[dict]:
     hi = f"Hello {_first_name(req)},"
     product = req.product_name
     link = f"{SITE_URL}/my-requests/{req.id}"
-    hourly, phase2 = _num("SOURCING_FEE_HOURLY", 25), _num("PHASE2_FEE", 100)
+    hourly, fee = _num("SOURCING_FEE_HOURLY", 25), report_fee_bsd()
     lines, valid = _option_lines(req)
+    preview_lines, _ = _option_lines(req, locked=True)
     n = len(lines)
     count = f"{n} option{'s' if n != 1 else ''}"
-    found = "\n".join(lines) if lines else "* (Send the options first, then reload this template.)"
+    none_yet = "* (Send the options first, then reload this template.)"
+    found = "\n".join(lines) if lines else none_yet
+    found_preview = "\n".join(preview_lines) if preview_lines else none_yet
     out = []
 
-    out.append({"key": "options_preview", "label": "Phase 1: preview report",
-                "subject": f"Your AIMORO sourcing options – Phase 1 ({product})",
+    out.append({"key": "options_preview", "label": "Preview report (blurred) + report fee",
+                "subject": f"Your AIMORO preview report ({product})",
                 "attachments": ["options_preview"],
                 "body": "\n\n".join([
                     hi,
-                    f"Thank you for choosing AIMORO. Please find attached the Phase 1 sourcing report for your request, "
+                    f"Thank you for choosing AIMORO. Please find attached the preview report for your request, "
                     f"**{product}** (request #{req.id}). We found {count}:",
-                    found,
-                    "The report compares what you asked for with what we found, side by side, with pricing for every "
-                    "option. This is a preview report, so model names, photos and some details are hidden until you "
-                    "decide to proceed.",
+                    found_preview,
+                    "The preview shows what you asked for and the price of every option. What we found, how well it "
+                    "matches your request, the model names and the photos are in the full report.",
                     (f"**Sourcing fee waived**\nOur standard sourcing fee is {_money(hourly)} per hour. As a Friends "
-                     "and Family courtesy, we have waived this fee for Phase 1." if req.fee_waived else
+                     "and Family courtesy, we have waived this fee." if req.fee_waived else
                      f"**Sourcing fee**\nOur sourcing fee is {_money(hourly)} per hour. The sourcing fee for this "
                      "report is $[amount]."),
-                    f"**Next step: Phase 2**\nIf you would like to proceed, a {_money(phase2)} fee gives you:",
-                    "* The full report, with model names, photos and complete specifications for every option\n"
-                    "* Continuation of the ordering process for the option you choose: confirming details with the "
-                    "seller, final pricing and shipping arrangements",
-                    f"Please note that the {_money(phase2)} Phase 2 fee is separate from the price of your order and is "
-                    "not deducted from it.",
+                    f"**Full report: {_money(fee)}**\nTo see the full report and choose your option, please pay the "
+                    f"{_money(fee)} report fee. As soon as it is confirmed, we send you:",
+                    "* The full report, with model names, clear photos and the complete comparison for every option\n"
+                    "* Your next steps to choose an option and place your order",
+                    f"The {_money(fee)} report fee is separate from the price of your order.",
                     f"**Payment:** {PAYMENT_METHODS}. We will send the payment details by WhatsApp.",
                     _questions(valid), _signoff()])})
 
-    out.append({"key": "options_full", "label": "Phase 2: full report",
-                "subject": f"Your AIMORO full report – Phase 2 ({product})",
+    out.append({"key": "options_full", "label": "Full report (after report fee)",
+                "subject": f"Your AIMORO full report ({product})",
                 "attachments": ["options_full"],
                 "body": "\n\n".join([
                     hi,
-                    f"Thank you for your payment. Your {_money(phase2)} Phase 2 fee has been received.",
-                    f"Please find attached your full sourcing report for **{product}**. It now includes the model "
-                    "names, clear photos and complete specifications for every option:",
+                    f"Thank you, your {_money(fee)} report fee has been received." if report_unlocked(req) else
+                    "Thank you for confirming.",
+                    f"Please find attached your full report for **{product}**. It includes the model names, clear "
+                    "photos and the complete comparison for every option:",
                     found,
                     "**Next steps**",
-                    "1. Choose your option: reply to this email or message us on WhatsApp.\n"
-                    "2. We confirm the details with the seller.\n"
-                    "3. We send your invoice.",
+                    f"1. Choose your option here: {link} (or reply to this email or message us on WhatsApp).\n"
+                    "2. We send your invoice.\n"
+                    "3. Once your payment is confirmed, we place your order.\n"
+                    "4. We check your order with photos and videos before it ships.\n"
+                    "5. We deliver it to your door.",
                     f"**Payment:** {PAYMENT_METHODS}. Please use your invoice number as the payment reference and send "
                     "us a screenshot of your payment confirmation.",
                     _questions(valid), _signoff()])})
@@ -146,12 +160,12 @@ def email_templates(req: ProductRequest) -> list[dict]:
 
     if req.warehouse_photos:
         n_ph = len(req.warehouse_photos)
-        out.append({"key": "warehouse", "label": "Warehouse check photos",
+        out.append({"key": "warehouse", "label": "Quality check photos and videos",
                     "subject": f"We checked your order · {product}",
                     "attachments": [],
                     "body": "\n\n".join([
                         hi,
-                        f"Your order, **{product}**, has arrived at our China warehouse and we have checked it.",
+                        f"Your order, **{product}**, has arrived at our China warehouse and we have completed its quality check.",
                         f"We have added {n_ph} photo{'s' if n_ph != 1 else ''} and video{'s' if n_ph != 1 else ''} so you can "
                         f"see exactly what arrived: {link}" if any(p.media_type == "video" for p in req.warehouse_photos) else
                         f"We have added {n_ph} photo{'s' if n_ph != 1 else ''} so you can see exactly what arrived: {link}",
@@ -176,7 +190,7 @@ def email_templates(req: ProductRequest) -> list[dict]:
                     "body": "\n\n".join([
                         hi, f"Your order, **{product}**, has been delivered to {delivery_address(req)}.",
                         "Thank you for shopping with AIMORO! We would love to help with your next order.",
-                        _questions(), _signoff()])})
+                        feedback_line(), _questions(), _signoff()])})
 
     out.append({"key": "custom", "label": "Blank email",
                 "subject": f"Your AIMORO request · {product}", "attachments": [],

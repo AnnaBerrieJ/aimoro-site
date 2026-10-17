@@ -24,6 +24,7 @@ def paid_request(users, who, name):
                       json={"platform": "taobao", "price_cny": 100, "china_shipping_cny": 20,
                             "url": "https://item.taobao.com/x"}).json()["id"]
     client.post(f"/admin/requests/{rid}/quote", headers=users["admin"], json={"listing_id": lid, **QUOTE})
+    client.post(f"/admin/requests/{rid}/report-fee", headers=users["admin"])
     inv = client.post(f"/requests/{rid}/approve", headers=users[who]).json()["invoice"]
     client.post(f"/admin/invoices/{inv['id']}/mark-paid?reference=RBC-1", headers=users["admin"])
     return rid
@@ -104,8 +105,11 @@ def test_order_to_delivery_with_consolidation(ops_users):
     # notifications were logged (email not configured in tests -> skipped)
     admin_view = client.get(f"/admin/requests/{r1}", headers=u["admin"]).json()
     subjects = [n["subject"] for n in admin_view["notifications"]]
-    for s in ["Your quote is ready", "Payment received", "Order placed", "Your order has shipped", "Delivered"]:
+    for s in ["Your preview quote is ready", "Your full report is ready", "Payment received", "Order placed",
+              "Your order has shipped", "Delivered"]:
         assert any(x.startswith(s) for x in subjects), f"missing notification: {s}"
+    delivered = next(n for n in admin_view["notifications"] if n["subject"].startswith("Delivered"))
+    assert "How did we do?" in delivered["body"]
     assert all(n["status"] == "skipped" for n in admin_view["notifications"])
     assert any(not e["customer_visible"] for e in admin_view["events"])  # private events kept for admin
 

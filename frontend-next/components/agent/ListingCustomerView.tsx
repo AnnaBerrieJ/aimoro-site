@@ -10,6 +10,7 @@ const STARTER_ROWS: SpecRow[] = ['Colour', 'Size', 'Material'].map(label => ({ l
 /** Admin editor for what the customer sees about one found product: photo, name, comparison, notes. */
 export function ListingCustomerView({ listing, onSaved }: { listing: api.Listing; onSaved: () => Promise<void> }) {
   const [title, setTitle] = useState(listing.public_title)
+  const [previewTitle, setPreviewTitle] = useState(listing.preview_title || '')
   const [notes, setNotes] = useState(listing.public_notes)
   const [specs, setSpecs] = useState<SpecRow[]>(listing.specs.length ? listing.specs : STARTER_ROWS)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -36,9 +37,9 @@ export function ListingCustomerView({ listing, onSaved }: { listing: api.Listing
     await run(async () => {
       await api.updateListing(listing.id, {
         platform: listing.platform, url: listing.url, title: listing.title,
-        price_cny: listing.price_cny, china_shipping_cny: listing.china_shipping_cny,
+        currency: listing.currency, price_cny: listing.price_cny, china_shipping_cny: listing.china_shipping_cny,
         seller_rating: listing.seller_rating, weight_kg: listing.weight_kg, notes: listing.notes,
-        public_title: title.trim(), public_notes: notes.trim(),
+        public_title: title.trim(), preview_title: previewTitle.trim(), public_notes: notes.trim(),
         specs: specs.filter(r => r.label.trim() && (r.requested.trim() || r.found.trim())),
       })
       setSaved(true)
@@ -62,11 +63,19 @@ export function ListingCustomerView({ listing, onSaved }: { listing: api.Listing
           <p className="text-[11px] text-slate-500">A screenshot from the app works. Crop out the seller name and any prices.</p>
         </div>
         <div className="space-y-3">
-          <div>
-            <label className={labelClass} htmlFor={`pt-${listing.id}`}>Name shown to customer</label>
-            <input id={`pt-${listing.id}`} className={inputClass} placeholder="e.g. Natural rattan tote with zip" maxLength={120}
-              value={title} onChange={e => setTitle(e.target.value)} />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass} htmlFor={`pt-${listing.id}`}>Name in the full report</label>
+              <input id={`pt-${listing.id}`} className={inputClass} placeholder="e.g. FJWX FX6040C X-ray scanner" maxLength={120}
+                value={title} onChange={e => setTitle(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor={`pv-${listing.id}`}>Name in the preview (no model name)</label>
+              <input id={`pv-${listing.id}`} className={inputClass} placeholder="e.g. Scanner A" maxLength={120}
+                value={previewTitle} onChange={e => setPreviewTitle(e.target.value)} />
+            </div>
           </div>
+          <p className="-mt-1 text-[11px] text-slate-500">Until the report fee is paid, the customer sees the preview name, what they asked for and the price. What you found, the match, notes and photo stay hidden.</p>
           <div>
             <p className={labelClass}>Comparison</p>
             <div className="space-y-2">

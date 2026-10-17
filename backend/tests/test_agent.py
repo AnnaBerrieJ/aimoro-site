@@ -122,8 +122,10 @@ def test_full_flow_and_privacy(users):
     r = client.get(f"/admin/requests/{rid}", headers=users["admin"])
     assert len(r.json()["listings"]) == 2 and r.json()["quotes"][0]["margin_bsd"] == 21.00
 
-    # only the owner can approve
+    # only the owner can approve, and only once the report fee is confirmed
     assert client.post(f"/requests/{rid}/approve", headers=users["other"]).status_code == 404
+    assert client.post(f"/requests/{rid}/approve", headers=users["cust"]).status_code == 400
+    assert client.post(f"/admin/requests/{rid}/report-fee?reference=Zelle", headers=users["admin"]).status_code == 200
     r = client.post(f"/requests/{rid}/approve", headers=users["cust"])
     assert r.status_code == 200, r.text
     inv = r.json()["invoice"]
@@ -186,7 +188,8 @@ def test_delivery_address_defaults_to_profile(users):
 
 
 def test_delivery_address_required(users):
-    r = client.post("/auth/signup", json={"email": "noaddr@example.com", "password": "password123", "name": "N"})
+    r = client.post("/auth/signup", json={"email": "noaddr@example.com", "password": "password123", "name": "N",
+                                          "phone": "242 555 0101"})
     h = {"Authorization": f"Bearer {r.json()['token']}"}
     assert client.post("/requests", headers=h, json={"product_name": "Desk lamp"}).status_code == 400
 

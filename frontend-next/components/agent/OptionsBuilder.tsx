@@ -64,7 +64,7 @@ export function OptionsBuilder({ req, onSent }: { req: api.AdminRequest; onSent:
                 <label className={labelClass} htmlFor={`ol-${i}`}>Listing</label>
                 <select id={`ol-${i}`} className={inputClass} value={o.listing_id} onChange={e => setOpt(i, { listing_id: e.target.value })}>
                   {[...(l ? [l] : []), ...unused].map(x => (
-                    <option key={x.id} value={x.id}>{x.public_title || x.title || x.platform} · ¥{x.price_cny}</option>
+                    <option key={x.id} value={x.id}>{x.public_title || x.title || x.platform} · {api.money(x.currency, x.price_cny)}</option>
                   ))}
                 </select>
               </div>
@@ -92,7 +92,7 @@ export function OptionsBuilder({ req, onSent }: { req: api.AdminRequest; onSent:
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {([['fx', 'CNY → USD rate', '0.0001'], ['markup', 'Freight markup %', '1'], ['fee', 'Service fee %', '0.5'], ['feeMin', 'Min service fee (BSD)', '1']] as const).map(([k, l, step]) => (
+        {([['fx', 'RMB → USD rate (USD prices: no conversion)', '0.0001'], ['markup', 'Freight markup %', '1'], ['fee', 'Service fee %', '0.5'], ['feeMin', 'Min service fee (BSD)', '1']] as const).map(([k, l, step]) => (
           <div key={k}>
             <label className={labelClass} htmlFor={`sh-${k}`}>{l}</label>
             <input id={`sh-${k}`} type="number" min={0} step={step} className={inputClass} value={shared[k]} onChange={e => setShared({ ...shared, [k]: e.target.value })} />

@@ -35,7 +35,8 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default="customer")  # customer | admin
     name: Mapped[str] = mapped_column(String(255))
     phone: Mapped[str] = mapped_column(String(50), default="")
-    island: Mapped[str] = mapped_column(String(100), default="New Providence")
+    country: Mapped[str | None] = mapped_column(String(40), nullable=True, default="Bahamas")
+    island: Mapped[str] = mapped_column(String(100), default="New Providence")  # island / state / province
     address: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -68,6 +69,10 @@ class ProductRequest(Base):
     shipment_id: Mapped[int | None] = mapped_column(ForeignKey("shipments.id"), nullable=True, index=True)
     # Friends and Family: sourcing fee waived for this request (set by admin)
     fee_waived: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=False)
+    # Report fee: the options stay blurred (preview) until Ashley confirms this payment,
+    # then the customer sees the full report and can choose an option.
+    report_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    report_fee_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="requests")
     shipment: Mapped["Shipment | None"] = relationship(back_populates="requests")
@@ -89,6 +94,8 @@ class SupplierListing(Base):
     platform: Mapped[str] = mapped_column(String(20))
     url: Mapped[str] = mapped_column(Text, default="")
     title: Mapped[str] = mapped_column(Text, default="")
+    # Prices are in `currency` (CNY by default, or USD). Column names kept for compatibility.
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True, default="CNY")
     price_cny: Mapped[float] = mapped_column(Float)
     china_shipping_cny: Mapped[float] = mapped_column(Float, default=0)
     seller_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -99,6 +106,8 @@ class SupplierListing(Base):
     # Customer-facing presentation of this find (shown when it is sent as an option).
     # Everything above stays admin-only.
     public_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Short general description shown in the blurred preview, e.g. "Scanner A" (no model name).
+    preview_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     public_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     specs_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # [{label, requested, found, match}]
     photo_path: Mapped[str | None] = mapped_column(Text, nullable=True)

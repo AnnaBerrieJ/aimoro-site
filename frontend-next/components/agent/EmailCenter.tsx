@@ -46,7 +46,7 @@ export function EmailCenter({ req, onChanged }: { req: api.AdminRequest; onChang
       <ErrorNote message={error} />
 
       {drafts.map(d => (
-        <EmailEditor key={d.id} heading="Waiting for your review" note="This automatic email has not been sent. Edit it, then send it, or discard it."
+        <EmailEditor key={d.id} req={req} heading="Waiting for your review" note="This automatic email has not been sent. Edit it, then send it, or discard it."
           initial={{ subject: d.subject, body: d.body, attachments: d.attachments }} templates={templates}
           onSave={async v => { await api.updateEmail(d.id, v); await onChanged() }}
           onSend={async v => { await api.updateEmail(d.id, v); await api.sendEmail(d.id); await onChanged() }}
@@ -54,7 +54,7 @@ export function EmailCenter({ req, onChanged }: { req: api.AdminRequest; onChang
       ))}
 
       {composing && (
-        <EmailEditor heading="New email" initial={composing} templates={templates}
+        <EmailEditor req={req} heading="New email" initial={composing} templates={templates}
           onSave={async v => { await api.createEmail(req.id, { ...v, send: false }); setComposing(null); await onChanged() }}
           onSend={async v => { await api.createEmail(req.id, { ...v, send: true }); setComposing(null); await onChanged() }}
           onDiscard={async () => setComposing(null)} discardLabel="Cancel" />
@@ -81,6 +81,11 @@ export function EmailCenter({ req, onChanged }: { req: api.AdminRequest; onChang
                     {n.to_address} · {dateTime(n.sent_at ?? n.created_at)}
                     {n.attachments.length > 0 && ` · ${n.attachments.length} attachment${n.attachments.length > 1 ? 's' : ''}`}
                     {n.error ? ` · ${n.error}` : ''}
+                    {req.customer.phone && n.to_address === req.customer.email && (
+                      <> · <a className="font-semibold text-emerald-700" target="_blank" rel="noopener noreferrer"
+                        href={api.whatsappLink(req.customer.phone, api.whatsappText(n.body, api.requestPageUrl(req.id), n.attachments.length > 0))}>
+                        Send on WhatsApp ↗</a></>
+                    )}
                   </p>
                 </li>
               ))}
@@ -92,8 +97,8 @@ export function EmailCenter({ req, onChanged }: { req: api.AdminRequest; onChang
   )
 }
 
-function EmailEditor({ heading, note, initial, templates, onSave, onSend, onDiscard, discardLabel = 'Discard' }: {
-  heading: string; note?: string; initial: Draft; templates: EmailTemplate[] | null
+function EmailEditor({ req, heading, note, initial, templates, onSave, onSend, onDiscard, discardLabel = 'Discard' }: {
+  req: api.AdminRequest; heading: string; note?: string; initial: Draft; templates: EmailTemplate[] | null
   onSave: (d: Draft) => Promise<void>; onSend: (d: Draft) => Promise<void>; onDiscard: () => Promise<void>
   discardLabel?: string
 }) {
@@ -162,6 +167,12 @@ function EmailEditor({ heading, note, initial, templates, onSave, onSend, onDisc
         <button disabled={busy} className={secondaryBtn}
           onClick={() => run(async () => setPreview((await api.previewEmail(d.body)).html))}>Preview</button>
         <button disabled={busy || !d.subject.trim() || !d.body.trim()} className={secondaryBtn} onClick={() => run(() => onSave(d))}>Save draft</button>
+        {req.customer.phone && (
+          <a className={`${secondaryBtn} !border-emerald-300 !text-emerald-700`} target="_blank" rel="noopener noreferrer"
+            href={api.whatsappLink(req.customer.phone, api.whatsappText(d.body, api.requestPageUrl(req.id), d.attachments.length > 0))}>
+            Send on WhatsApp ↗
+          </a>
+        )}
         <button disabled={busy} className="text-sm font-semibold text-slate-500 hover:text-red-600 px-2" onClick={() => run(onDiscard)}>{discardLabel}</button>
       </div>
 

@@ -12,7 +12,7 @@ function NewRequestForm() {
   const { user } = useAuth()
   const [form, setForm] = useState({ product_name: '', description: '', reference_url: '', quantity: '1', target_price_bsd: '', delivery_address: '' })
   useEffect(() => {
-    if (user) setForm(f => (f.delivery_address ? f : { ...f, delivery_address: [user.address, user.island].filter(Boolean).join(', ') }))
+    if (user) setForm(f => (f.delivery_address ? f : { ...f, delivery_address: [user.address, user.island, user.country].filter(Boolean).join(', ') }))
   }, [user])
   const [photo, setPhoto] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -81,7 +81,7 @@ function NewRequestForm() {
           </div>
           <div>
             <label className={labelClass} htmlFor="delivery_address">Deliver to</label>
-            <textarea id="delivery_address" rows={2} required className={inputClass} placeholder="Street, settlement, island"
+            <textarea id="delivery_address" rows={2} required className={inputClass} placeholder="Street, city or settlement, island / state / province"
               value={form.delivery_address} onChange={set('delivery_address')} />
           </div>
           <ErrorNote message={error} />

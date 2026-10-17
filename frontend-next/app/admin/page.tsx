@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { RequireAuth } from '@/components/agent/RequireAuth'
 import { Card, ErrorNote, PageHeader, StatusBadge } from '@/components/agent/ui'
 import * as api from '@/lib/agent'
-import { STATUS_LABELS, bsd, shortDate, type RequestStatus } from '@/lib/agent'
+import { STATUS_LABELS, bsd, locationText, shortDate, type RequestStatus } from '@/lib/agent'
 
 const FILTERS: (RequestStatus | 'all')[] = ['all', 'received', 'sourcing', 'quote_ready', 'paid', 'ordered', 'shipped', 'delivered', 'cancelled']
 
@@ -63,7 +63,7 @@ function AdminQueue() {
                 <div className="min-w-0">
                   <p className="font-bold text-slate-900 truncate">#{r.id} · {r.product_name}</p>
                   <p className="text-xs text-slate-500">
-                    {r.customer.name} · {r.customer.island} · Qty {r.quantity}
+                    {r.customer.name} · {locationText(r.customer)} · Qty {r.quantity}
                     {r.target_price_bsd != null && ` · budget ${bsd(r.target_price_bsd)}`} · {shortDate(r.created_at)}
                   </p>
                 </div>

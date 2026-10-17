@@ -6,14 +6,15 @@ import { useParams } from 'next/navigation'
 import { RequireAuth } from '@/components/agent/RequireAuth'
 import { Card, ErrorNote, StatusBadge, inputClass, labelClass, primaryBtn, secondaryBtn } from '@/components/agent/ui'
 import * as api from '@/lib/agent'
-import { PLATFORMS, REQUEST_STATUS_OPTIONS, SHIPMENT_LABELS, STATUS_LABELS, bsd, dateTime, shortDate, whatsappLink } from '@/lib/agent'
+import { PLATFORMS, REQUEST_STATUS_OPTIONS, SHIPMENT_LABELS, STATUS_LABELS, CUR_SYMBOL, bsd, dateTime, locationText, money, requestPageUrl, shortDate, whatsappLink } from '@/lib/agent'
 import { Timeline } from '@/components/agent/Timeline'
 import { ListingCustomerView } from '@/components/agent/ListingCustomerView'
+import { FlowSteps } from '@/components/agent/FlowSteps'
 import { OptionsBuilder } from '@/components/agent/OptionsBuilder'
 import { EmailCenter } from '@/components/agent/EmailCenter'
 import { WarehousePhotoUpload } from '@/components/agent/WarehousePhotos'
 
-const EMPTY_LISTING = { platform: 'taobao', url: '', title: '', price_cny: '', china_shipping_cny: '', seller_rating: '', weight_kg: '', notes: '' }
+const EMPTY_LISTING = { platform: 'taobao', currency: 'CNY' as api.Currency, url: '', title: '', price_cny: '', china_shipping_cny: '', seller_rating: '', weight_kg: '', notes: '' }
 
 const searchLinks = (q: string) => [
   ['Taobao', `https://s.taobao.com/search?q=${encodeURIComponent(q)}`],
@@ -22,6 +23,33 @@ const searchLinks = (q: string) => [
 ] as const
 
 const num = (s: string) => (s.trim() === '' ? null : Number(s))
+
+/** Step 4: confirm the report fee to unlock the full report for the customer. */
+function ReportFeeCard({ req, busy, act }: { req: api.AdminRequest; busy: boolean; act: (fn: () => Promise<unknown>) => Promise<void> }) {
+  const [ref, setRef] = useState('')
+  const fee = bsd(req.report_fee_bsd).replace('.00', '')
+  if (!req.options.length && !req.report_unlocked) return null
+  if (req.report_unlocked) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm">
+        <span className="font-semibold text-emerald-800">✓ Report fee paid{req.report_paid_at ? ` on ${shortDate(req.report_paid_at)}` : ''}{req.report_fee_ref ? ` (${req.report_fee_ref})` : ''}: the customer sees the full report.</span>
+        {!req.invoice && (
+          <button type="button" disabled={busy} className="text-xs font-semibold text-slate-500 underline"
+            onClick={() => { if (confirm('Undo the report fee? The customer goes back to the blurred preview.')) act(() => api.adminReportFee(req.id, false)) }}>Undo</button>
+        )}
+      </div>
+    )
+  }
+  return (
+    <form className="flex flex-wrap items-center gap-2 rounded-xl border border-[#c40000]/30 bg-red-50/60 px-4 py-3 text-sm"
+      onSubmit={e => { e.preventDefault(); act(() => api.adminReportFee(req.id, true, ref.trim())) }}>
+      <span className="font-semibold text-slate-900 mr-auto">Preview sent. Waiting for the {fee} report fee; the customer sees blurred details until you confirm it.</span>
+      <input aria-label="Payment reference" placeholder="Reference (e.g. Zelle 1234)" className={`${inputClass} !w-56 !py-2`}
+        value={ref} onChange={e => setRef(e.target.value)} />
+      <button type="submit" disabled={busy} className={`${primaryBtn} !py-2`}>Confirm {fee} paid · send full report</button>
+    </form>
+  )
+}
 
 function Workspace() {
   const id = Number(useParams<{ id: string }>().id)
@@ -82,7 +110,9 @@ function Workspace() {
           Friends &amp; Family: sourcing fee waived
         </label>
       </div>
+      <FlowSteps req={req} listingCount={req.listings.length} />
       <ErrorNote message={error} />
+      <ReportFeeCard req={req} busy={busy} act={act} />
       {req.notifications.some(n => n.status === 'draft' && n.to_address === req.customer.email) && (
         <a href="#emails" className="block rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
           An email to {req.customer.name} is waiting for your review. Edit and send it ↓
@@ -125,8 +155,9 @@ function Workspace() {
             <p className="text-sm text-slate-600">{req.customer.email}</p>
             {req.customer.phone && (
               <p className="text-sm text-slate-600">{req.customer.phone} · <a className="text-[#c40000] font-semibold" target="_blank" rel="noopener noreferrer"
-                href={`https://wa.me/${req.customer.phone.replace(/\D/g, '')}`}>WhatsApp</a></p>
+                href={whatsappLink(req.customer.phone)}>WhatsApp</a></p>
             )}
+            <p className="text-sm text-slate-600">{locationText(req.customer)}</p>
             <p className="text-sm text-slate-600 whitespace-pre-wrap"><span className="text-slate-500">Deliver to: </span>{req.delivery_address || '—'}</p>
           </Card>
           <Card>
@@ -149,7 +180,7 @@ function Workspace() {
         <div className="lg:col-span-2 space-y-4">
           <Card>
             <h2 className="font-bold text-slate-900 mb-1">Sourcing <span className="text-xs font-semibold text-slate-400">(private)</span></h2>
-            <p className="text-xs text-slate-500 mb-3">Paste what you find in the Taobao / Pinduoduo / 1688 apps. Prices in CNY; BSD shown at today's rate.
+            <p className="text-xs text-slate-500 mb-3">Paste what you find in the Taobao / Pinduoduo / 1688 apps. Prices in RMB (¥) or USD ($); RMB is converted to BSD at today's rate.
               For each listing, click <b>Add photo &amp; specs</b> to upload its photo and fill in the comparison the customer sees.</p>
             {req.listings.length > 0 && (
               <div className="overflow-x-auto -mx-1 mb-4">
@@ -157,7 +188,7 @@ function Workspace() {
                   <thead>
                     <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
                       <th className="py-2 px-1">Platform</th><th className="px-1">Item</th>
-                      <th className="px-1 text-right">¥ each</th><th className="px-1 text-right">¥ ship</th>
+                      <th className="px-1 text-right">Price each</th><th className="px-1 text-right">China ship</th>
                       <th className="px-1 text-right">≈ BSD each</th><th className="px-1">Rating</th><th className="px-1">Photo &amp; specs</th><th className="px-1" />
                     </tr>
                   </thead>
@@ -170,8 +201,8 @@ function Workspace() {
                           {l.url ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-[#c40000] underline break-all">{l.title || 'Open listing'}</a> : (l.title || '—')}
                           {l.notes && <p className="text-xs text-slate-500">{l.notes}</p>}
                         </td>
-                        <td className="px-1 text-right tabular-nums">{l.price_cny.toFixed(2)}</td>
-                        <td className="px-1 text-right tabular-nums">{l.china_shipping_cny.toFixed(2)}</td>
+                        <td className="px-1 text-right tabular-nums whitespace-nowrap">{money(l.currency, l.price_cny)}</td>
+                        <td className="px-1 text-right tabular-nums whitespace-nowrap">{money(l.currency, l.china_shipping_cny)}</td>
                         <td className={`px-1 text-right tabular-nums ${cheapest?.id === l.id ? 'font-bold text-emerald-700' : ''}`}>
                           {l.price_bsd_estimate != null ? bsd(l.price_bsd_estimate) : '—'}
                         </td>
@@ -203,11 +234,11 @@ function Workspace() {
               e.preventDefault()
               act(async () => {
                 const added = await api.addListing(req.id, {
-                  platform: listing.platform as api.Platform,
+                  platform: listing.platform as api.Platform, currency: listing.currency,
                   url: listing.url.trim(), title: listing.title.trim(),
                   price_cny: Number(listing.price_cny), china_shipping_cny: Number(listing.china_shipping_cny) || 0,
                   seller_rating: num(listing.seller_rating), weight_kg: num(listing.weight_kg), notes: listing.notes.trim(),
-                  public_title: '', public_notes: '', specs: [],
+                  public_title: '', preview_title: '', public_notes: '', specs: [],
                 })
                 setListing(EMPTY_LISTING)
                 setOpenView(added.id)  // go straight to photo & specs
@@ -216,9 +247,14 @@ function Workspace() {
               <select aria-label="Platform" className={inputClass} value={listing.platform} onChange={e => setListing({ ...listing, platform: e.target.value })}>
                 {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
-              <input aria-label="Price CNY" required type="number" min={0} step="0.01" placeholder="¥ price each" className={inputClass}
+              <select aria-label="Currency" className={inputClass} value={listing.currency}
+                onChange={e => setListing({ ...listing, currency: e.target.value as api.Currency })}>
+                <option value="CNY">RMB (¥)</option>
+                <option value="USD">USD ($)</option>
+              </select>
+              <input aria-label="Price each" required type="number" min={0} step="0.01" placeholder={`${CUR_SYMBOL[listing.currency]} price each`} className={inputClass}
                 value={listing.price_cny} onChange={e => setListing({ ...listing, price_cny: e.target.value })} />
-              <input aria-label="China shipping CNY" type="number" min={0} step="0.01" placeholder="¥ China shipping" className={inputClass}
+              <input aria-label="China shipping" type="number" min={0} step="0.01" placeholder={`${CUR_SYMBOL[listing.currency]} China shipping`} className={inputClass}
                 value={listing.china_shipping_cny} onChange={e => setListing({ ...listing, china_shipping_cny: e.target.value })} />
               <input aria-label="Seller rating" type="number" min={0} max={5} step="0.1" placeholder="Rating /5" className={inputClass}
                 value={listing.seller_rating} onChange={e => setListing({ ...listing, seller_rating: e.target.value })} />
@@ -325,7 +361,7 @@ function Workspace() {
             <h2 className="font-bold text-slate-900 mb-3">Timeline</h2>
             <Timeline items={req.events} action={e => e.customer_visible !== false && req.customer.phone ? (
               <a className="text-xs font-semibold text-emerald-700" target="_blank" rel="noopener noreferrer"
-                href={whatsappLink(req.customer.phone, `Hi ${req.customer.name.split(' ')[0]}, update on your AIMORO request "${req.product_name}": ${e.message}`)}>
+                href={whatsappLink(req.customer.phone, `Hi ${req.customer.name.split(' ')[0]}, update on your AIMORO request "${req.product_name}": ${e.message}\n\nView your request: ${requestPageUrl(req.id)}`)}>
                 Send on WhatsApp ↗
               </a>
             ) : null} />
