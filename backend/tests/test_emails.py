@@ -114,5 +114,16 @@ def test_fee_waiver_and_warehouse_photos(u, monkeypatch):
     assert client.get(f"/requests/{rid}/warehouse-photos/{photos[0]['id']}", headers=u["cust"]).status_code == 200
     t = {x["key"] for x in client.get(f"/admin/requests/{rid}/email-templates", headers=u["admin"]).json()}
     assert "warehouse" in t
+    # videos too (stored and streamed back as-is)
+    r = client.post(f"/admin/requests/{rid}/warehouse-photos", headers=u["admin"],
+                    files=[("files", ("check.mp4", b"\x00\x00\x00\x18ftypmp42" + b"0" * 2048, "video/mp4"))])
+    assert r.status_code == 200, r.text
+    media = client.get(f"/requests/{rid}", headers=u["cust"]).json()["warehouse_photos"]
+    vid = [m for m in media if m["media_type"] == "video"]
+    assert len(vid) == 1 and all(m["media_type"] == "image" for m in media if m is not vid[0])
+    got = client.get(f"/requests/{rid}/warehouse-photos/{vid[0]['id']}", headers=u["cust"])
+    assert got.status_code == 200 and got.headers["content-type"].startswith("video/mp4")
+    assert client.post(f"/admin/requests/{rid}/warehouse-photos", headers=u["admin"],
+                       files=[("files", ("x.txt", b"hi", "text/plain"))]).status_code == 400
     r = client.delete(f"/admin/warehouse-photos/{photos[0]['id']}", headers=u["admin"])
-    assert r.status_code == 200 and len(r.json()["warehouse_photos"]) == 1
+    assert r.status_code == 200 and len(r.json()["warehouse_photos"]) == 2

@@ -45,6 +45,34 @@ async def save_photo(file: UploadFile, prefix: str) -> str:
     return name
 
 
+ALLOWED_VIDEO_TYPES = {"video/mp4": ".mp4", "video/quicktime": ".mov", "video/webm": ".webm", "video/x-m4v": ".m4v"}
+MAX_VIDEO_BYTES = int(float(os.getenv("MAX_VIDEO_MB", "100")) * 1024 * 1024)
+
+
+async def save_media(file: UploadFile, prefix: str) -> tuple[str, str]:
+    """Store an uploaded photo or video. Returns (stored file name, "image" or "video").
+    Videos are written in chunks so large files never sit in memory."""
+    ctype = file.content_type or ""
+    if ctype in ALLOWED_IMAGE_TYPES:
+        return await save_photo(file, prefix), "image"
+    ext = ALLOWED_VIDEO_TYPES.get(ctype)
+    if ext is None:
+        raise HTTPException(400, "Files must be photos (JPG, PNG, WebP) or videos (MP4, MOV, WebM)")
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    name = f"{prefix}_{uuid.uuid4().hex}{ext}"
+    dest = os.path.join(UPLOAD_DIR, name)
+    size = 0
+    with open(dest, "wb") as fh:
+        while chunk := await file.read(1024 * 1024):
+            size += len(chunk)
+            if size > MAX_VIDEO_BYTES:
+                fh.close()
+                os.remove(dest)
+                raise HTTPException(400, f"Videos must be under {MAX_VIDEO_BYTES // (1024 * 1024)} MB")
+            fh.write(chunk)
+    return name, "video"
+
+
 def upload_path(name: str) -> str:
     return os.path.join(UPLOAD_DIR, os.path.basename(name))
 

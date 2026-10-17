@@ -87,7 +87,7 @@ export interface ProductRequest {
   warehouse_photos: WarehousePhoto[]
 }
 
-export interface WarehousePhoto { id: number; caption: string; created_at: string }
+export interface WarehousePhoto { id: number; caption: string; media_type: 'image' | 'video'; created_at: string }
 
 export interface Listing {
   id: number; platform: Platform; url: string; title: string
@@ -300,11 +300,30 @@ export const sendEmail = (id: number) => request<NotificationLog>(`/admin/notifi
 export const discardEmail = (id: number) => request<NotificationLog>(`/admin/notifications/${id}/discard`, { method: 'POST' })
 export const previewEmail = (body: string) => request<{ html: string }>('/admin/emails/preview', { method: 'POST', body: json({ body }) })
 export const emailDrafts = () => request<EmailDraftBrief[]>('/admin/email-drafts')
-export const uploadWarehousePhotos = (requestId: number, files: File[], caption: string) => {
+/** Upload warehouse photos/videos with progress (0-100), since videos can be large. */
+export function uploadWarehousePhotos(requestId: number, files: File[], caption: string,
+                                      onProgress?: (pct: number) => void): Promise<AdminRequest> {
   const fd = new FormData()
   files.forEach(f => fd.append('files', f))
   fd.append('caption', caption)
-  return request<AdminRequest>(`/admin/requests/${requestId}/warehouse-photos`, { method: 'POST', body: fd })
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${API_BASE_URL}/admin/requests/${requestId}/warehouse-photos`)
+    const token = getToken()
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100)) }
+    xhr.onload = () => {
+      let data: unknown = null
+      try { data = JSON.parse(xhr.responseText) } catch { /* not json */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data as AdminRequest)
+      else {
+        const d = (data as { detail?: unknown } | null)?.detail
+        reject(new ApiError(xhr.status, typeof d === 'string' ? d : `Upload failed (${xhr.status})`))
+      }
+    }
+    xhr.onerror = () => reject(new ApiError(0, 'Upload failed. Check your connection and try again.'))
+    xhr.send(fd)
+  })
 }
 export const deleteWarehousePhoto = (photoId: number) =>
   request<AdminRequest>(`/admin/warehouse-photos/${photoId}`, { method: 'DELETE' })

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_admin
 from ..db import get_db
-from ..common import delivery_address, save_photo, upload_path
+from ..common import delivery_address, save_media, upload_path
 from ..models import SHIPMENT_METHODS, SHIPMENT_STATUSES, ProductRequest, Shipment, WarehousePhoto
 from ..notify import add_event, notify_customer
 from ..schemas import (AdminRequestOut, AdminShipmentOut, OrderIn, ShipmentIn, ShipmentRequestBrief,
@@ -67,23 +67,27 @@ def warehouse_arrival(request_id: int, body: WarehouseIn, db: Session = Depends(
     return _admin_view(req)
 
 
-MAX_WAREHOUSE_PHOTOS = 12
+MAX_WAREHOUSE_MEDIA = 20
 
 
 @router.post("/requests/{request_id}/warehouse-photos", response_model=AdminRequestOut)
 async def add_warehouse_photos(request_id: int, background: BackgroundTasks, files: list[UploadFile] = File(...),
                                caption: str = Form(""), db: Session = Depends(get_db)):
-    """Photos from the China warehouse check, so the customer can see exactly what arrived."""
+    """Photos and videos from the China warehouse check, so the customer can see exactly what arrived."""
     req = _get_req(db, request_id)
     if req.status in ("received", "sourcing", "quote_ready", "cancelled"):
-        raise HTTPException(400, "Warehouse photos can be added once the order is paid")
-    if len(req.warehouse_photos) + len(files) > MAX_WAREHOUSE_PHOTOS:
-        raise HTTPException(400, f"Up to {MAX_WAREHOUSE_PHOTOS} warehouse photos per request")
+        raise HTTPException(400, "Warehouse photos and videos can be added once the order is paid")
+    if len(req.warehouse_photos) + len(files) > MAX_WAREHOUSE_MEDIA:
+        raise HTTPException(400, f"Up to {MAX_WAREHOUSE_MEDIA} warehouse photos and videos per request")
+    kinds = []
     for f in files:
-        db.add(WarehousePhoto(request_id=req.id, path=await save_photo(f, f"wh{req.id}"), caption=caption.strip()[:200]))
-    n = len(files)
-    msg = (f"We checked your order at our China warehouse. {n} photo{'s' if n != 1 else ''} of your item "
-           f"{'are' if n != 1 else 'is'} now on your request page.")
+        path, kind = await save_media(f, f"wh{req.id}")
+        kinds.append(kind)
+        db.add(WarehousePhoto(request_id=req.id, path=path, media_type=kind, caption=caption.strip()[:200]))
+    photos, videos = kinds.count("image"), kinds.count("video")
+    parts = [f"{n} {word}{'s' if n != 1 else ''}" for n, word in ((photos, "photo"), (videos, "video")) if n]
+    msg = (f"We checked your order at our China warehouse. {' and '.join(parts)} of your item "
+           f"{'are' if len(files) != 1 else 'is'} now on your request page.")
     add_event(db, req, "warehouse_photos", msg)
     notify_customer(db, background, req, "Warehouse check photos", msg)
     db.commit()

@@ -152,6 +152,8 @@ def email_templates(req: ProductRequest) -> list[dict]:
                     "body": "\n\n".join([
                         hi,
                         f"Your order, **{product}**, has arrived at our China warehouse and we have checked it.",
+                        f"We have added {n_ph} photo{'s' if n_ph != 1 else ''} and video{'s' if n_ph != 1 else ''} so you can "
+                        f"see exactly what arrived: {link}" if any(p.media_type == "video" for p in req.warehouse_photos) else
                         f"We have added {n_ph} photo{'s' if n_ph != 1 else ''} so you can see exactly what arrived: {link}",
                         "If everything looks good, there is nothing you need to do. We will let you know as soon as it "
                         "ships. If anything does not look right, reply to this email before it ships.",

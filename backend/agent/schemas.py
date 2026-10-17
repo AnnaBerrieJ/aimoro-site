@@ -129,7 +129,13 @@ class WarehousePhotoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     caption: str
+    media_type: str = "image"
     created_at: datetime
+
+    @field_validator("media_type", mode="before")
+    @classmethod
+    def _default_image(cls, v):
+        return v or "image"
 
 
 class RequestOut(BaseModel):

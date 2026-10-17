@@ -124,7 +124,7 @@ function RequestDetail() {
       {req.warehouse_photos.length > 0 && (
         <Card>
           <h2 className="font-bold text-slate-900">Warehouse check</h2>
-          <p className="text-sm text-slate-600 mb-3">We checked your order at our China warehouse. Here is exactly what arrived. Tap a photo to see it full size.</p>
+          <p className="text-sm text-slate-600 mb-3">We checked your order at our China warehouse. Here is exactly what arrived. Tap a photo to see it full size, or play a video.</p>
           <WarehousePhotoGrid requestId={req.id} photos={req.warehouse_photos} />
         </Card>
       )}

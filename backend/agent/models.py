@@ -212,13 +212,14 @@ class Notification(Base):
 
 
 class WarehousePhoto(Base):
-    """Photos taken at the China warehouse check, shown to the customer."""
+    """Photos and videos taken at the China warehouse check, shown to the customer."""
     __tablename__ = "warehouse_photos"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     request_id: Mapped[int] = mapped_column(ForeignKey("requests.id"), index=True)
     path: Mapped[str] = mapped_column(Text)
     caption: Mapped[str] = mapped_column(String(200), default="")
+    media_type: Mapped[str | None] = mapped_column(String(10), nullable=True, default="image")  # image | video
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     request: Mapped[ProductRequest] = relationship(back_populates="warehouse_photos")
