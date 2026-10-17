@@ -329,3 +329,14 @@ def admin_mark_paid(invoice_id: int, background: BackgroundTasks, reference: str
 @router.get("/customers", response_model=list[CustomerBrief])
 def customers(db: Session = Depends(get_db)):
     return db.scalars(select(User).where(User.role == "customer").order_by(User.id.desc())).all()
+
+
+@router.post("/gsync")
+def gsync_all(db: Session = Depends(get_db)):
+    """Re-sync every request to Google Drive and the order tracker (runs in the background)."""
+    from .. import gsync
+    if not gsync.enabled():
+        raise HTTPException(400, "Google sync is not configured (see backend/agent/gsync.py)")
+    ids = list(db.scalars(select(ProductRequest.id).order_by(ProductRequest.id)))
+    gsync.submit(ids)
+    return {"queued": len(ids)}

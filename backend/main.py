@@ -9,12 +9,14 @@ from database import create_tables, save_supplier_to_db, get_saved_suppliers, de
 from agent.db import init_db
 from agent.routers import admin as agent_admin, auth as agent_auth, customer as agent_customer, operations as agent_ops
 from agent.routers import emails as agent_emails
+from agent import gsync
 
 app = FastAPI(title="Aimoro Smart Sourcing System")
 create_tables()
 
 # Sourcing-agent features: customer accounts, requests, quotes, invoices.
 init_db()
+gsync.install()  # mirror requests to Google Drive + the order tracker sheet (if configured)
 app.include_router(agent_auth.router)
 app.include_router(agent_customer.router)
 app.include_router(agent_admin.router)

@@ -73,6 +73,8 @@ class ProductRequest(Base):
     # then the customer sees the full report and can choose an option.
     report_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     report_fee_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Google Drive folder holding this request's files (set by gsync.py)
+    drive_folder_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="requests")
     shipment: Mapped["Shipment | None"] = relationship(back_populates="requests")

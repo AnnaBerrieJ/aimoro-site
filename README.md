@@ -35,7 +35,7 @@ cp .env.example .env            # fill in values
 cd backend
 pip install -r requirements.txt
 ADMIN_EMAILS=you@example.com uvicorn main:app --reload   # sign up with that email to get admin
-pytest tests                                              # 14 tests
+pytest tests                                              # 24 tests
 
 cd ../frontend-next
 npm install
@@ -56,6 +56,8 @@ npm run dev                     # http://localhost:3000
 | `BANK_TRANSFER_INSTRUCTIONS` | backend | Shown to customers on unpaid invoices |
 | `RESEND_API_KEY`, `EMAIL_FROM` | backend | Optional: customer emails. Unset = emails logged as "skipped" |
 | `UPLOAD_DIR` | backend | Where customer photos are stored (use a persistent disk in production) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | backend | Optional: mirror each request to Google Drive and the order tracker sheet (`backend/agent/gsync.py`). Get the refresh token with `backend/scripts/google_auth.py` |
+| `GDRIVE_ORDERS_FOLDER_ID`, `GSHEET_TRACKER_ID`, `GSHEET_TRACKER_TAB` | backend | Drive folder for order folders, and the tracker spreadsheet + tab (default `Orders`). `POST /admin/gsync` re-syncs every request |
 | `NEXT_PUBLIC_API_BASE_URL` | frontend | Backend URL (defaults to `http://127.0.0.1:8000`) |
 
 ## Deployment
