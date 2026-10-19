@@ -17,7 +17,7 @@ function Logo({ dark = false }: { dark?: boolean }) {
 }
 
 export function MarketingShell({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const accountHref = user?.role === 'admin' ? '/admin' : '/my-requests'
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
@@ -40,12 +40,19 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="flex items-center gap-2">
             {user ? (
-              <Link href={accountHref} className="inline-flex items-center rounded-xl bg-[#c40000] hover:bg-[#950000] text-white text-sm font-semibold px-4 py-2.5 transition-colors">
-                {user.role === 'admin' ? 'Request queue' : 'My requests'}
-              </Link>
+              <>
+                <button type="button" onClick={logout}
+                  className="hidden sm:inline-flex items-center rounded-xl text-sm font-semibold px-4 py-2.5 text-slate-700 hover:bg-slate-100 transition-colors">
+                  Log out
+                </button>
+                <Link href={accountHref} className="inline-flex items-center rounded-xl bg-[#c40000] hover:bg-[#950000] text-white text-sm font-semibold px-4 py-2.5 transition-colors">
+                  {user.role === 'admin' ? 'Request queue' : 'My requests'}
+                </Link>
+              </>
             ) : (
               <>
                 <Link href="/login" className="hidden sm:inline-flex items-center rounded-xl text-sm font-semibold px-4 py-2.5 text-slate-700 hover:bg-slate-100 transition-colors">Log in</Link>
+                <Link href="/signup" className="hidden lg:inline-flex items-center rounded-xl border border-slate-200 text-sm font-semibold px-4 py-2.5 text-slate-700 hover:bg-slate-50 transition-colors">Sign up</Link>
                 <Link href="/signup" className="inline-flex items-center rounded-xl bg-[#c40000] hover:bg-[#950000] text-white text-sm font-semibold px-4 py-2.5 transition-colors">Start a request</Link>
               </>
             )}
@@ -70,6 +77,8 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
               ))}
               <li><a href={`mailto:${CONTACT_EMAIL}`} className="block py-3 text-base font-semibold text-slate-800">Contact</a></li>
               {!user && <li><Link href="/login" onClick={() => setMenuOpen(false)} className="block py-3 text-base font-semibold text-slate-800">Log in</Link></li>}
+              {!user && <li><Link href="/signup" onClick={() => setMenuOpen(false)} className="block py-3 text-base font-semibold text-slate-800">Sign up</Link></li>}
+              {user && <li><button type="button" onClick={() => { logout(); setMenuOpen(false) }} className="block w-full text-left py-3 text-base font-semibold text-slate-800">Log out</button></li>}
             </ul>
           </nav>
         )}
