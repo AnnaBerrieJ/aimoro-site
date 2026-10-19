@@ -105,7 +105,8 @@ export function UploadBox({ label, button, withMessage = false, messagePlacehold
 }) {
   const uid = useId()
   const [files, setFiles] = useState<File[]>([])
-  const [message, setMessage] = useState('')
+  // Uncontrolled on purpose: the browser owns the typed text (fixes typing not registering in Safari).
+  const note = useRef<HTMLTextAreaElement>(null)
   const [pct, setPct] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -122,8 +123,9 @@ export function UploadBox({ label, button, withMessage = false, messagePlacehold
     if (!files.length) { setError('Choose at least one file first'); return }
     setError(null); setPct(0)
     try {
-      await onUpload(files, message, setPct)
-      setFiles([]); setMessage('')
+      await onUpload(files, note.current?.value.trim() ?? '', setPct)
+      setFiles([])
+      if (note.current) note.current.value = ''
       if (input.current) input.current.value = ''
     } catch (e) { setError((e as Error).message) }
     finally { setPct(null) }
@@ -137,12 +139,13 @@ export function UploadBox({ label, button, withMessage = false, messagePlacehold
           onDragOver={e => { e.preventDefault(); setDragging(true) }}
           onDragLeave={() => setDragging(false)}
           onDrop={e => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) }}
-          className={`flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-6 text-center cursor-pointer transition-colors ${dragging ? 'border-[#c40000] bg-[#c40000]/5' : 'border-slate-300 hover:border-slate-400 bg-slate-50'}`}>
+          className={`relative flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-6 text-center cursor-pointer transition-colors ${dragging ? 'border-[#c40000] bg-[#c40000]/5' : 'border-slate-300 hover:border-slate-400 bg-slate-50'}`}>
           <span className="text-sm font-semibold text-slate-800">Click to choose files, or drag them here</span>
           <span className="text-xs text-slate-500">Images, PDF, SVG, AI, EPS, PSD, fonts or ZIP</span>
+          {/* Hidden picker lives inside the drop zone so it can never sit over the note box below. */}
+          <input id={uid} ref={input} type="file" multiple accept={ACCEPT} className="sr-only"
+            onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
         </label>
-        <input id={uid} ref={input} type="file" multiple accept={ACCEPT} className="sr-only"
-          onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
         {hint && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
         {files.length > 0 && (
           <ul className="mt-2 space-y-1">
@@ -159,7 +162,7 @@ export function UploadBox({ label, button, withMessage = false, messagePlacehold
       {withMessage && (
         <div>
           <label className={labelClass} htmlFor={`${uid}-msg`}>Note for the customer (optional)</label>
-          <textarea id={`${uid}-msg`} value={message} onChange={e => setMessage(e.target.value)} rows={3}
+          <textarea id={`${uid}-msg`} ref={note} name="note" autoComplete="off" defaultValue="" rows={3}
             placeholder={messagePlaceholder} className={inputClass} />
         </div>
       )}
