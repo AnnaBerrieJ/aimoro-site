@@ -74,7 +74,7 @@ function NewRequestForm() {
                 value={form.quantity} onChange={set('quantity')} />
             </div>
             <div>
-              <label className={labelClass} htmlFor="budget">Budget (BSD, optional)</label>
+              <label className={labelClass} htmlFor="budget">Budget ($, optional)</label>
               <input id="budget" type="number" min={0} step="0.01" className={inputClass}
                 value={form.target_price_bsd} onChange={set('target_price_bsd')} />
             </div>

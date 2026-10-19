@@ -4,11 +4,11 @@ import { AppShell } from '@/components/AppShell'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { AuthProvider } from '@/components/AuthProvider'
 
-const DESCRIPTION = 'Personal shopping and delivery for The Bahamas. Tell us what you want, get one price in BSD, and we deliver it to your door.'
+const DESCRIPTION = 'Products sourced from China, delivered to your door in The Bahamas. Tell us what you want, get one all-in price, and we handle the rest.'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://aimoro.co'),
-  title: 'AIMORO · Anything you want, delivered to your door in The Bahamas',
+  title: 'AIMORO · Sourced from China, delivered to your door in The Bahamas',
   description: DESCRIPTION,
   manifest: '/manifest.json',
   icons: { icon: '/favicon.png', apple: '/favicon.png' },
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://aimoro.co',
     siteName: 'AIMORO',
-    title: 'AIMORO · Anything you want, delivered to your door',
+    title: 'AIMORO · Sourced from China, delivered to your door',
     description: DESCRIPTION,
     images: [{ url: '/AimoroLogo.png', width: 500, height: 500, alt: 'AIMORO' }],
   },

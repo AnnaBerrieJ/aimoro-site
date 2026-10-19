@@ -92,7 +92,7 @@ function Prices({ o }: { o: CustomerOption }) {
         <div key={k} className="flex justify-between"><dt className="text-slate-600">{k}</dt><dd className="tabular-nums">{bsd(v)}</dd></div>
       ))}
       <div className="flex justify-between border-t border-slate-200 pt-2 mt-1 font-extrabold text-base">
-        <dt>Total (BSD)</dt><dd className="tabular-nums">{bsd(o.total_bsd)}</dd>
+        <dt>Total</dt><dd className="tabular-nums">{bsd(o.total_bsd)}</dd>
       </div>
     </dl>
   )

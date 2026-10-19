@@ -50,7 +50,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-3 lg:col-span-1">
             <Logo dark />
-            <p className="text-sm leading-relaxed text-slate-400">Personal shopping and delivery for The Bahamas. Tell us what you want and we bring it to your door.</p>
+            <p className="text-sm leading-relaxed text-slate-400">Your sourcing agent in China. Tell us what you want and we deliver it to your door in The Bahamas.</p>
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">AIMORO</p>
@@ -80,7 +80,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
         <div className="border-t border-white/10">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 text-xs text-slate-500 flex flex-wrap justify-between gap-2">
             <span>© {new Date().getFullYear()} AIMORO. All rights reserved.</span>
-            <span>Prices in Bahamian dollars (BSD)</span>
+            <span>Sourced from China · Delivered to your door</span>
           </div>
         </div>
       </footer>

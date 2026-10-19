@@ -38,20 +38,21 @@ const CATEGORIES = [
 
 const STEPS = [
   { title: 'Tell us what you want', body: 'Describe it, add a photo or a link, and say how many you need.' },
-  { title: 'Get one price', body: 'We find it and send a single quote in BSD: product, shipping to your address and our fee.' },
+  { title: 'We source it in China', body: 'We search trusted suppliers and factories in China and send you one all-in quote: product, shipping to your address and our fee.' },
   { title: 'Approve and pay', body: 'Happy with the price? Approve it and pay your invoice from your account.' },
-  { title: 'Delivered to you', body: 'We check your order, ship it, and deliver it to the address you give us.' },
+  { title: 'Delivered to you', body: 'We check your order at our warehouse in China, ship it to The Bahamas, and deliver it to your address.' },
 ]
 
 const REASONS = [
-  { icon: ICONS.tag, title: 'One clear price', body: 'You see the full price in BSD before you pay anything. No surprises from us.' },
-  { icon: ICONS.shield, title: 'Checked before it ships', body: 'Every order is checked at our warehouse before it leaves, so you get what you asked for.' },
-  { icon: ICONS.route, title: 'Track every step', body: 'Follow your order from quote to doorstep in your account, with email updates along the way.' },
+  { icon: ICONS.box, title: 'Straight from the source', body: 'Most of the world’s products are made in China. We buy from suppliers there, so you skip the extra middlemen and pay closer to the source price.' },
+  { icon: ICONS.tag, title: 'One clear price', body: 'You see the full price before you pay anything. No surprises from us.' },
+  { icon: ICONS.shield, title: 'Checked before it ships', body: 'Every order is checked at our warehouse in China before it leaves, with photos, so you get what you asked for.' },
   { icon: ICONS.chat, title: 'Real people, real answers', body: 'Questions before or after you order? Email us and a person replies.' },
 ]
 
 const FAQS = [
-  { q: 'How much does it cost?', a: 'Every request gets its own quote in Bahamian dollars. It covers the product, shipping to your address and our service fee, so you know the full price before you pay.' },
+  { q: 'Where do the products come from?', a: 'We source everything from suppliers and factories in China. Your order is checked at our warehouse there, then shipped to The Bahamas and delivered to your address.' },
+  { q: 'How much does it cost?', a: 'Every request gets its own all-in quote. It covers the product, shipping to your address and our service fee, so you know the full price before you pay.' },
   { q: 'Is there a minimum order?', a: 'No. Order one item or a hundred.' },
   { q: 'How long does delivery take?', a: 'It depends on the item and the shipping method. Your quote tells you how it will be shipped and roughly how long it takes, and you can follow every step in your account.' },
   { q: 'How do I pay?', a: 'Once you approve your quote, you’ll get an invoice in your account showing how to pay. We only order your item after payment is received.' },
@@ -89,7 +90,7 @@ function ExampleOrder() {
           <div className="flex justify-between text-slate-600"><span>Product</span><span className="tabular-nums">$30.80</span></div>
           <div className="flex justify-between text-slate-600"><span>Shipping to your address</span><span className="tabular-nums">$38.00</span></div>
           <div className="flex justify-between text-slate-600"><span>Service fee</span><span className="tabular-nums">$15.00</span></div>
-          <div className="flex justify-between font-extrabold pt-1.5 border-t border-slate-200"><span>Total (BSD)</span><span className="tabular-nums">$83.80</span></div>
+          <div className="flex justify-between font-extrabold pt-1.5 border-t border-slate-200"><span>Total</span><span className="tabular-nums">$83.80</span></div>
         </div>
       </div>
     </div>
@@ -109,20 +110,20 @@ export default function HomePage() {
           <div className="space-y-7">
             <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-semibold tracking-wide text-slate-300">
               <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" />
-              Personal shopping & delivery for The Bahamas
+              Sourced from China · Delivered to your door
             </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.05] tracking-tight">
-              Anything you want.<br /><span className="text-[#f87171]">Delivered to your door.</span>
+              Anything you want, sourced from China.<br /><span className="text-[#f87171]">Delivered to your door.</span>
             </h1>
             <p className="text-lg text-slate-300 leading-relaxed max-w-xl">
-              Tell us what you&apos;re looking for. We find it, send you one price in Bahamian dollars, and deliver it to your address.
+              Tell us what you&apos;re looking for. We find it from trusted suppliers in China, send you one all-in price, and deliver it to your address in The Bahamas.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href={startHref} className="inline-flex items-center rounded-xl bg-[#c40000] hover:bg-[#950000] text-white font-semibold px-6 py-3.5 shadow-[0_10px_30px_rgba(196,0,0,0.35)] transition-colors">{startLabel}</Link>
               <Link href="/#how" className="inline-flex items-center rounded-xl border border-white/20 hover:bg-white/10 text-white font-semibold px-6 py-3.5 transition-colors">See how it works</Link>
             </div>
             <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
-              {['One price in BSD', 'No minimum order', 'Track every step'].map(t => (
+              {['Sourced direct from China', 'One all-in price', 'No minimum order', 'Track every step'].map(t => (
                 <li key={t} className="flex items-center gap-2"><Icon d={ICONS.check} className="w-4 h-4 text-[#f87171]" />{t}</li>
               ))}
             </ul>
@@ -172,8 +173,8 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20 grid lg:grid-cols-[1fr_1.4fr] gap-12 items-start">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-[#c40000] mb-3">Why AIMORO</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Shopping overseas without the guesswork</h2>
-            <p className="text-slate-700 mt-4 leading-relaxed">Finding the right seller, paying in another currency and arranging shipping is a lot of work. We do it for you and keep you posted the whole way.</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Shopping from China without the guesswork</h2>
+            <p className="text-slate-700 mt-4 leading-relaxed">China has almost anything you can think of, often for far less. But finding a reliable seller, paying in yuan and arranging shipping across the world is a lot of work. We do it for you and keep you posted the whole way.</p>
           </div>
           <ul className="grid sm:grid-cols-2 gap-5">
             {REASONS.map(r => (
@@ -214,7 +215,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto rounded-[32px] bg-[#c40000] text-white px-6 sm:px-14 py-14 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
           <div>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Seen something you want?</h2>
-            <p className="text-white/85 mt-3 text-lg">Send us a photo or a link. We&apos;ll come back with one price.</p>
+            <p className="text-white/85 mt-3 text-lg">Send us a photo or a link. We&apos;ll find it in China and come back with one price.</p>
           </div>
           <Link href={startHref} className="shrink-0 inline-flex items-center justify-center rounded-xl bg-white text-[#c40000] hover:bg-[#fff1f1] font-bold px-7 py-4 transition-colors">{startLabel}</Link>
         </div>

@@ -26,7 +26,7 @@ export default function TermsPage() {
       <section>
         <h2>3. Quotes and prices</h2>
         <ul>
-          <li>Each quote is in Bahamian dollars (BSD) and shows the product cost, shipping to your address and our service fee.</li>
+          <li>Each quote is one all-in price that shows the product cost, shipping to your address and our service fee.</li>
           <li>Quotes are valid for 7 days. Supplier prices and exchange rates change, so after that we may send an updated quote.</li>
           <li>Nothing is ordered until you approve a quote and your payment is received.</li>
         </ul>

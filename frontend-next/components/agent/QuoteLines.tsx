@@ -17,7 +17,7 @@ export function QuoteLines({ quote }: { quote: CustomerQuote }) {
         </div>
       ))}
       <div className="flex justify-between py-3">
-        <dt className="font-bold text-slate-900">Total (BSD)</dt>
+        <dt className="font-bold text-slate-900">Total</dt>
         <dd className="font-extrabold text-lg text-slate-900 tabular-nums">{bsd(quote.total_bsd)}</dd>
       </div>
     </dl>
