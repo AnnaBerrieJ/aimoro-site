@@ -16,7 +16,9 @@ function Logo({ dark = false }: { dark?: boolean }) {
   )
 }
 
-export function MarketingShell({ children }: { children: React.ReactNode }) {
+/** embedded: shown inside the admin sidebar layout (no full-height wrapper; the top menu only on desktop,
+ *  since phones already have the admin top bar and bottom menu). */
+export function MarketingShell({ children, embedded = false }: { children: React.ReactNode; embedded?: boolean }) {
   const { user, logout } = useAuth()
   const accountHref = user?.role === 'admin' ? '/admin' : '/my-requests'
   const [menuOpen, setMenuOpen] = useState(false)
@@ -27,8 +29,8 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
   ]
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-[#0f172a]">
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-100">
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} flex flex-col bg-white text-[#0f172a]`}>
+      <header className={`${embedded ? 'hidden lg:block' : ''} sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-100`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <Logo />
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600" aria-label="Main">

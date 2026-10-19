@@ -6,15 +6,20 @@ import { usePathname } from 'next/navigation'
 import { MarketingShell } from './MarketingShell'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
+import { useAuth } from './AuthProvider'
 
 // Public pages get a website layout (top menu + footer); the signed-in app keeps the sidebar.
+// Admins always keep the sidebar, also on the public pages (the website shows inside it).
 const PUBLIC_PATHS = ['/', '/branding', '/login', '/signup', '/forgot-password', '/reset-password', '/terms', '/privacy']
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const { user } = useAuth()
+  const isPublic = PUBLIC_PATHS.includes(pathname)
+  const isAdmin = user?.role === 'admin'
 
-  if (PUBLIC_PATHS.includes(pathname)) return <MarketingShell>{children}</MarketingShell>
+  if (isPublic && !isAdmin) return <MarketingShell>{children}</MarketingShell>
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -37,7 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
-          {children}
+          {isPublic ? <MarketingShell embedded>{children}</MarketingShell> : children}
         </main>
       </div>
       <MobileNav />
