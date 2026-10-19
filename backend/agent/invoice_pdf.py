@@ -76,12 +76,35 @@ def build_branding_invoice_pdf(project) -> bytes:
     user = project.user
     paid = project.paid_at is not None
     name = BRANDING_PACKAGE_NAMES.get(project.package, project.package.title())
+    brief = [("Business", project.industry), ("About", project.description), ("Style", project.style_notes),
+             ("Colours", project.colours), ("Examples", project.reference_url)]
+    brief = [(k, " ".join((v or "").split())) for k, v in brief if (v or "").strip()]
+    # Long briefs are shortened so the invoice always fits on one page.
+    def cut(items, limit):
+        return [(k, v if len(v) <= limit else v[:limit].rstrip() + "...") for k, v in items]
+    attempts = [cut(brief, n) for n in (400, 220, 120, 70, 40)]
+    attempts.append(cut(brief[:3], 40))  # last resort: the first few details only
+    for notes in attempts:
+        try:
+            return _branding_invoice(project, user, paid, name, notes)
+        except _TooLong:
+            continue
+    return _branding_invoice(project, user, paid, name, [], check=False)
+
+
+class _TooLong(Exception):
+    pass
+
+
+def _branding_invoice(project, user, paid, name, notes, check=True) -> bytes:
     return _render_invoice(
+        notes=notes, check_fit=check,
         number=project.invoice_number or "", created_at=project.created_at, paid=paid, paid_at=project.paid_at,
         amount=project.price_bsd, user=user,
         right_heading="BRAND", right_lines=[project.business_name],
         order_title=f"{name} branding package", order_sub=f"Branding project #{project.id}",
-        rows=[(f"{name} branding package", project.price_bsd)],
+        rows=[(f"{name} branding package", project.price_bsd,
+               BRANDING_PACKAGE_ITEMS.get(project.package, []))],
         paid_text=f"We received your payment of {_money(project.price_bsd)}. We will now start your design and keep you updated at {SITE}.",
         unpaid_closing="We start your design as soon as your payment is received.",
         footer_note="",
@@ -89,10 +112,48 @@ def build_branding_invoice_pdf(project) -> bytes:
 
 
 BRANDING_PACKAGE_NAMES = {"basic": "Basic", "standard": "Standard", "full": "Full"}
+# Keep in step with the package cards on frontend-next/app/branding/page.tsx.
+BRANDING_PACKAGE_ITEMS = {
+    "basic": [
+        "Logo design: main, icon and one-colour versions",
+        "Logo sized for social media: 1:1, 4:5, 9:16 and 16:9",
+        "Brand colours and fonts",
+        "1 product mockup",
+        "1 round of changes",
+    ],
+    "standard": [
+        "Everything in Basic",
+        "Mockups of your logo on up to 5 products",
+        "Logo placement guide",
+        "Social media kit: profile picture, cover and 3 post templates",
+        "Business card design",
+        "2 rounds of changes",
+    ],
+    "full": [
+        "Everything in Standard",
+        "Website design: a custom one-page HTML website",
+        "Signage and marketing materials",
+        "Packaging design",
+        "Complete brand guide (PDF)",
+        "Production-ready files for manufacturing",
+        "Sourcing fee waived on your first order",
+        "3 rounds of changes",
+    ],
+}
+
+
+def _latin1(text) -> str:
+    """The built-in PDF font only has Latin-1 characters: swap common typographic ones, drop the rest (e.g. emoji)."""
+    t = str(text or "")
+    for a, b in {"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2013": "-", "\u2014": "-",
+                 "\u2026": "...", "\u2022": "\u00b7", "\u00a0": " "}.items():
+        t = t.replace(a, b)
+    return " ".join(t.encode("latin-1", "ignore").decode("latin-1").split(" ")).strip() if t else ""
 
 
 def _render_invoice(*, number, created_at, paid, paid_at, amount, user, right_heading, right_lines,
-                    order_title, order_sub, rows, paid_text, unpaid_closing, footer_note) -> bytes:
+                    order_title, order_sub, rows, paid_text, unpaid_closing, footer_note,
+                    notes=None, check_fit=False) -> bytes:
     pdf = FPDF(format="Letter", unit="mm")
     pdf.set_auto_page_break(auto=True, margin=20)
     pdf.set_margins(18, 16, 18)
@@ -158,7 +219,9 @@ def _render_invoice(*, number, created_at, paid, paid_at, amount, user, right_he
 
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(*NAVY)
-    left_lines = [user.name, user.email, user.phone]
+    left_lines = [_latin1(t) for t in (user.name, user.email, user.phone)]
+    right_lines = [_latin1(t) for t in right_lines]
+    order_title = _latin1(order_title)
     yl = yr = y + 6
     for line in [t for t in left_lines if t]:
         pdf.set_xy(L, yl)
@@ -191,10 +254,26 @@ def _render_invoice(*, number, created_at, paid, paid_at, amount, user, right_he
     pdf.set_font("Helvetica", "", 10)
     pdf.set_draw_color(226, 232, 240)
     pdf.set_line_width(0.3)
-    for label, value in rows:
+    for label, value, *extra in rows:
+        details = extra[0] if extra else []
         pdf.set_text_color(*NAVY)
-        pdf.cell(W - 40, 10, f"  {label}", border="B")
-        pdf.cell(40, 10, f"{_money(value)}  ", border="B", align="R", new_x="LMARGIN", new_y="NEXT")
+        if not details:
+            pdf.cell(W - 40, 10, f"  {label}", border="B")
+            pdf.cell(40, 10, f"{_money(value)}  ", border="B", align="R", new_x="LMARGIN", new_y="NEXT")
+            continue
+        # Line item with what it includes listed underneath.
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(W - 40, 9, f"  {label}")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(40, 9, f"{_money(value)}  ", align="R", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "", 8.5)
+        pdf.set_text_color(*SLATE)
+        for d in details:
+            pdf.set_x(L)
+            pdf.cell(W - 40, 4.6, f"      \u00b7  {d}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2.5)
+        pdf.line(L, pdf.get_y(), L + W, pdf.get_y())
+        pdf.set_font("Helvetica", "", 10)
 
     pdf.set_fill_color(*LIGHT)
     pdf.set_font("Helvetica", "B", 12)
@@ -202,8 +281,28 @@ def _render_invoice(*, number, created_at, paid, paid_at, amount, user, right_he
     pdf.set_text_color(*RED)
     pdf.cell(40, 12, f"{_money(amount)}  ", align="R", fill=True, new_x="LMARGIN", new_y="NEXT")
 
+    # --- Notes: the customer's own details from their request ---
+    if notes:
+        pdf.ln(6)
+        pdf.set_x(L)
+        pdf.set_font("Helvetica", "B", 8.5)
+        pdf.set_text_color(*SLATE)
+        pdf.cell(W, 5, "NOTES", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(*NAVY)
+        for label, value in notes:
+            pdf.set_x(L)
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.write(4.8, f"{_latin1(label)}: ")
+            pdf.set_font("Helvetica", "", 9)
+            pdf.write(4.8, _latin1(value))
+            pdf.ln(5.2)
+        y = pdf.get_y() + 6
+    else:
+        y = pdf.get_y() + 10
+
     # --- How to pay / paid box ---
-    y = pdf.get_y() + 10
+    if check_fit and (y + 26 > pdf.h - 31 or pdf.page_no() > 1):
+        raise _TooLong()
     pdf.set_xy(L, y)
     pdf.set_fill_color(*SAND)
     box_h = 26

@@ -61,7 +61,10 @@ function AdminQueue() {
             <Card className="hover:shadow-card-hover transition-shadow !p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-bold text-slate-900 truncate">#{r.id} · {r.product_name}</p>
+                  <p className="font-bold text-slate-900 truncate">
+                    {r.admin_unread && <span className="inline-block w-2 h-2 rounded-full bg-[#c40000] mr-2 align-middle" aria-label="Unread" />}
+                    #{r.id} · {r.product_name}
+                  </p>
                   <p className="text-xs text-slate-500">
                     {r.customer.name} · {locationText(r.customer)} · Qty {r.quantity}
                     {r.target_price_bsd != null && ` · budget ${bsd(r.target_price_bsd)}`} · {shortDate(r.created_at)}

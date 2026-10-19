@@ -63,9 +63,40 @@ def get_current_user(
         payload = jwt.decode(creds.credentials, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.PyJWTError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired login")
+    if payload.get("purpose"):  # e.g. a password-reset token is not a login
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired login")
     user = db.get(User, int(payload["sub"]))
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    return user
+
+
+RESET_MINUTES = 60
+
+
+def create_reset_token(user: User) -> str:
+    """Password-reset link token. Includes a fingerprint of the current password hash,
+    so the link stops working once the password has been changed (single use)."""
+    payload = {
+        "sub": str(user.id),
+        "purpose": "reset",
+        "pwh": user.password_hash[-16:],
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=RESET_MINUTES),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def user_from_reset_token(db: Session, token: str) -> User:
+    bad = HTTPException(400, "This reset link is invalid or has expired. Please ask for a new one.")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.PyJWTError:
+        raise bad
+    if payload.get("purpose") != "reset":
+        raise bad
+    user = db.get(User, int(payload["sub"]))
+    if user is None or user.password_hash[-16:] != payload.get("pwh"):
+        raise bad
     return user
 
 

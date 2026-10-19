@@ -80,6 +80,8 @@ class ProductRequest(Base):
     # then the customer sees the full report and can choose an option.
     report_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     report_fee_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # True when the customer did something Ashley hasn't looked at yet (new request, choice, cancel, payment).
+    admin_unread: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=True)
     # Google Drive folder holding this request's files (set by gsync.py)
     drive_folder_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
@@ -269,6 +271,7 @@ class BrandingProject(Base):
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     admin_notes: Mapped[str] = mapped_column(Text, default="")
+    admin_unread: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

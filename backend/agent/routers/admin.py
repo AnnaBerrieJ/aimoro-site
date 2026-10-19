@@ -56,6 +56,7 @@ def _admin_view(req: ProductRequest, fx: float | None = None) -> AdminRequestOut
             _notifications_for(req), key=lambda n: n.id, reverse=True)],
         fee_waived=bool(req.fee_waived),
         report_fee_ref=req.report_fee_ref,
+        admin_unread=bool(req.admin_unread),
     )
 
 
@@ -88,7 +89,21 @@ def list_requests(status: str | None = Query(default=None), db: Session = Depend
 
 @router.get("/requests/{request_id}", response_model=AdminRequestOut)
 def get_request(request_id: int, db: Session = Depends(get_db)):
-    return _admin_view(_get_req(db, request_id), get_cny_usd()["rate"])
+    req = _get_req(db, request_id)
+    if req.admin_unread:  # opening the request marks it as read
+        req.admin_unread = False
+        db.commit()
+    return _admin_view(req, get_cny_usd()["rate"])
+
+
+@router.get("/unread")
+def unread_counts(db: Session = Depends(get_db)):
+    """Badge counts for the admin menu: requests and branding projects with customer activity not yet opened."""
+    from ..models import BrandingProject
+    return {
+        "requests": db.scalar(select(func.count()).select_from(ProductRequest).where(ProductRequest.admin_unread.is_(True))) or 0,
+        "branding": db.scalar(select(func.count()).select_from(BrandingProject).where(BrandingProject.admin_unread.is_(True))) or 0,
+    }
 
 
 @router.patch("/requests/{request_id}", response_model=AdminRequestOut)

@@ -55,6 +55,20 @@ class LoginIn(BaseModel):
     password: str
 
 
+class ForgotPasswordIn(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    password: str = Field(min_length=8)
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -321,6 +335,7 @@ class EmailDraftBrief(BaseModel):
 
 class AdminRequestOut(RequestOut):
     admin_notes: str
+    admin_unread: bool = False
     customer: CustomerBrief
     listings: list[ListingOut] = []
     quotes: list[AdminQuoteOut] = []
@@ -448,6 +463,7 @@ class BrandingOut(BaseModel):
 
 class AdminBrandingOut(BrandingOut):
     admin_notes: str
+    admin_unread: bool = False
     payment_ref: str
     customer: CustomerBrief
     events: list[AdminEventOut]

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from './AuthProvider'
+import { badgeFor, useAdminUnread } from './agent/useUnread'
 
 const icon = (d: string) => (active: boolean) => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 1.75} viewBox="0 0 24 24">
@@ -41,6 +42,7 @@ export function MobileNav() {
   const pathname = usePathname()
   const { user } = useAuth()
   const nav = user?.role === 'admin' ? ADMIN_NAV : CUSTOMER_NAV
+  const unread = useAdminUnread()
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#0f172a] border-t border-white/5 flex items-center justify-around px-2 pb-safe">
@@ -50,11 +52,16 @@ export function MobileNav() {
           <Link
             key={href}
             href={href}
-            className={`flex flex-col items-center gap-1 px-3 py-3 rounded-xl transition-all min-w-0 ${
+            className={`relative flex flex-col items-center gap-1 px-3 py-3 rounded-xl transition-all min-w-0 ${
               active ? 'text-[#c40000]' : 'text-slate-500 hover:text-slate-300'
             }`}
           >
             {icon(active)}
+            {badgeFor(href, unread) > 0 && (
+              <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#c40000] text-white text-[10px] font-bold flex items-center justify-center">
+                {badgeFor(href, unread) > 99 ? '99+' : badgeFor(href, unread)}
+              </span>
+            )}
             <span className={`text-[10px] font-semibold tracking-wide ${active ? 'text-[#c40000]' : 'text-slate-600'}`}>
               {label}
             </span>

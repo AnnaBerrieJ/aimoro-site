@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useAuth } from '@/components/AuthProvider'
 import { CONTACT_EMAIL } from '@/lib/agent'
 
@@ -185,6 +186,23 @@ export default function HomePage() {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      {/* Branding teaser */}
+      <section className="px-4 sm:px-6 pt-16">
+        <div className="max-w-6xl mx-auto rounded-[28px] border border-slate-200 bg-white overflow-hidden grid md:grid-cols-[1.1fr_1fr] items-center">
+          <div className="p-6 sm:p-10">
+            <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#c40000] mb-3">
+              New · Branding
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Need a logo or branded merch?</h2>
+            <p className="text-slate-600 mt-3 leading-relaxed">We design your logo and brand, then make your t-shirts, caps, tumblers and more through our manufacturers in China. Packages from $200.</p>
+            <Link href="/branding" className="mt-5 inline-flex items-center rounded-xl bg-[#0f172a] hover:bg-black text-white font-semibold px-5 py-3 transition-colors">See branding packages</Link>
+          </div>
+          <div className="relative h-48 md:h-full min-h-[200px] bg-slate-100">
+            <Image src="/branding/tshirts-dark.jpg" alt="T-shirts with a custom logo" fill sizes="(min-width: 768px) 45vw, 100vw" className="object-cover" />
+          </div>
         </div>
       </section>
 

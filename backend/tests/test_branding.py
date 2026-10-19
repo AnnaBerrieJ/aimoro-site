@@ -134,3 +134,47 @@ def test_cancel_and_lists(people):
 def test_bad_package_rejected(people):
     r = client.post("/branding", headers=people["cust"], json={"package": "gold", "business_name": "X Co"})
     assert r.status_code == 422
+
+
+def test_password_reset_and_unread(people):
+    from agent.auth import create_reset_token
+    from agent.db import SessionLocal
+    from agent.models import Notification, User
+
+    # forgot-password answers the same for unknown emails
+    assert client.post("/auth/forgot-password", json={"email": "nobody@example.com"}).json() == {"ok": True}
+    assert client.post("/auth/forgot-password", json={"email": "Brand-Cust@example.com"}).status_code == 200
+    db = SessionLocal()
+    user = db.query(User).filter_by(email="brand-cust@example.com").one()
+    n = db.query(Notification).filter_by(user_id=user.id, subject="Reset your AIMORO password").first()
+    assert n is not None and "/reset-password?token=" in n.body
+    token = create_reset_token(user)
+    db.close()
+
+    # a reset token is not a login token
+    assert client.get("/auth/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+    assert client.post("/auth/reset-password", json={"token": "junk", "password": "newpassword1"}).status_code == 400
+    r = client.post("/auth/reset-password", json={"token": token, "password": "newpassword1"})
+    assert r.status_code == 200 and r.json()["token"]
+    # single use: the same link no longer works
+    assert client.post("/auth/reset-password", json={"token": token, "password": "another-pass"}).status_code == 400
+    assert client.post("/auth/login", json={"email": "brand-cust@example.com", "password": "newpassword1"}).status_code == 200
+
+    # unread badges: a new branding order shows up, opening it clears it
+    a, c = people["admin"], people["cust"]
+    before = client.get("/admin/unread", headers=a).json()["branding"]
+    pid = client.post("/branding", headers=c, json={"package": "standard", "business_name": "Unread Co"}).json()["id"]
+    assert client.get("/admin/unread", headers=a).json()["branding"] == before + 1
+    assert client.get("/admin/branding", headers=a).json()[0]["admin_unread"] is True
+    client.get(f"/admin/branding/{pid}", headers=a)
+    assert client.get("/admin/unread", headers=a).json()["branding"] == before
+    assert client.get("/admin/unread", headers=c).status_code == 403
+
+
+def test_invoice_lists_package_items(people):
+    from agent.invoice_pdf import BRANDING_PACKAGE_ITEMS
+    c = people["cust"]
+    pid = client.post("/branding", headers=c, json={"package": "full", "business_name": "Details Co"}).json()["id"]
+    pdf = client.get(f"/branding/{pid}/invoice.pdf", headers=c).content
+    assert pdf[:4] == b"%PDF" and b"/Count 1" in pdf  # one page, even with the longest package list
+    assert "Website design: a custom one-page HTML website" in BRANDING_PACKAGE_ITEMS["full"]

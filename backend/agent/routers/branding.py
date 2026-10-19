@@ -17,7 +17,7 @@ from .. import payments
 from ..auth import admin_emails, get_current_user, require_admin
 from ..common import UPLOAD_DIR, upload_path
 from ..db import get_db
-from ..invoice_pdf import BRANDING_PACKAGE_NAMES, branding_invoice_due, build_branding_invoice_pdf
+from ..invoice_pdf import BRANDING_PACKAGE_ITEMS, BRANDING_PACKAGE_NAMES, branding_invoice_due, build_branding_invoice_pdf
 from ..models import BRANDING_STATUSES, BrandingEvent, BrandingFile, BrandingProject, Notification, User
 from ..notify import CONTACT_EMAIL, SITE_URL, deliver
 from ..schemas import (AdminBrandingOut, AdminBrandingUpdate, AdminEventOut, BrandingChangesIn, BrandingFileOut,
@@ -32,6 +32,9 @@ PACKAGES = {
     "full": {"name": "Full", "price": 600.0, "rounds": 3, "days": "10 to 14 business days"},
 }
 assert {k: v["name"] for k, v in PACKAGES.items()} == BRANDING_PACKAGE_NAMES
+# What each package includes (same wording as the /branding page; shown on the invoice).
+for _k, _v in PACKAGES.items():
+    _v["items"] = BRANDING_PACKAGE_ITEMS[_k]
 
 # Design files: logos, mockups, guides, source files. Checked by extension (browsers send
 # unreliable content types for .ai/.eps/.psd).
@@ -82,7 +85,7 @@ def to_admin(db: Session, p: BrandingProject) -> AdminBrandingOut:
         **_base(p),
         files=[BrandingFileOut.model_validate(f) for f in p.files],
         timeline=[EventOut.model_validate(e) for e in reversed(p.events) if e.customer_visible],
-        admin_notes=p.admin_notes, payment_ref=p.payment_ref,
+        admin_notes=p.admin_notes, payment_ref=p.payment_ref, admin_unread=bool(p.admin_unread),
         customer=CustomerBrief.model_validate(p.user),
         events=[AdminEventOut.model_validate(e) for e in reversed(p.events)],
         notifications=[NotificationOut.model_validate(n) for n in notes],
@@ -192,7 +195,7 @@ def packages():
 def create_project(body: BrandingIn, background: BackgroundTasks,
                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     pkg = PACKAGES[body.package]
-    p = BrandingProject(user_id=user.id, price_bsd=pkg["price"], rounds_included=pkg["rounds"],
+    p = BrandingProject(user_id=user.id, price_bsd=pkg["price"], rounds_included=pkg["rounds"], admin_unread=True,
                         **{k: (v.strip() if isinstance(v, str) else v) for k, v in body.model_dump().items()})
     db.add(p)
     db.flush()
@@ -230,6 +233,7 @@ async def upload_references(project_id: int, files: list[UploadFile] = File(...)
     if p.status in ("completed", "cancelled"):
         raise HTTPException(400, "This project is closed")
     saved = await _save_files(db, p, files, "reference")
+    p.admin_unread = True
     add_event(db, p, "reference", f"You added {len(saved)} reference file{'s' if len(saved) != 1 else ''}.")
     db.commit()
     db.refresh(p)
@@ -262,6 +266,7 @@ def approve_proofs(project_id: int, background: BackgroundTasks,
     if p.status != "proofs_ready":
         raise HTTPException(400, "There are no proofs waiting for your approval")
     p.status = "approved"
+    p.admin_unread = True
     add_event(db, p, "approved", f"You approved proof set {p.proof_round}. We're preparing your final files.")
     notify_admins(db, background, p, f"Branding #{p.id} approved: {p.business_name}",
                   f"{p.user.name} approved proof set {p.proof_round}. Upload the final files next.")
@@ -280,6 +285,7 @@ def request_changes(project_id: int, body: BrandingChangesIn, background: Backgr
         raise HTTPException(400, "You've used all the change rounds in your package. Extra changes are "
                                  "available as an add-on: message us and we'll arrange it.")
     p.changes_used += 1
+    p.admin_unread = True
     p.status = "changes_requested"
     feedback = body.feedback.strip()
     add_event(db, p, "changes", f"You asked for changes (round {p.changes_used} of {p.rounds_included}): {feedback}")
@@ -296,6 +302,7 @@ def cancel_project(project_id: int, user: User = Depends(get_current_user), db: 
     if p.status != "awaiting_payment":
         raise HTTPException(400, "This project can no longer be cancelled online. Please message us.")
     p.status = "cancelled"
+    p.admin_unread = True
     add_event(db, p, "cancelled", "You cancelled this branding request.")
     db.commit()
     return to_customer(p)
@@ -328,6 +335,7 @@ def confirm_payment(project_id: int, background: BackgroundTasks, session_id: st
         if session.get("payment_status") != "paid" or session.get("client_reference_id") != f"branding-{p.id}":
             raise HTTPException(400, "Your payment hasn't gone through yet")
         mark_paid(db, background, p, f"stripe:{session_id}")
+        p.admin_unread = True
         db.commit()
     return to_customer(p)
 
@@ -357,7 +365,11 @@ def _get(db: Session, project_id: int) -> BrandingProject:
 
 @admin_router.get("/{project_id}", response_model=AdminBrandingOut)
 def admin_get(project_id: int, db: Session = Depends(get_db)):
-    return to_admin(db, _get(db, project_id))
+    p = _get(db, project_id)
+    if p.admin_unread:  # opening the project marks it as read
+        p.admin_unread = False
+        db.commit()
+    return to_admin(db, p)
 
 
 @admin_router.patch("/{project_id}", response_model=AdminBrandingOut)

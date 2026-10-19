@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
 import { useAuth } from './AuthProvider'
 import { CONTACT_EMAIL } from '@/lib/agent'
+import { badgeFor, useAdminUnread } from './agent/useUnread'
 
 const AGENT_ITEMS = [
   {
@@ -67,6 +68,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const { theme, toggle } = useTheme()
   const { user, logout } = useAuth()
+  const unread = useAdminUnread()
   const agentItems = AGENT_ITEMS.filter(i => (!i.adminOnly || user?.role === 'admin') && !('customerOnly' in i && i.customerOnly && user?.role === 'admin'))
 
   return (
@@ -116,7 +118,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 ].join(' ')}
               >
                 <span className={active ? 'text-white' : 'text-slate-500'}>{icon}</span>
-                {label}
+                <span className="flex-1">{label}</span>
+                {badgeFor(href, unread) > 0 && (
+                  <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center ${active ? 'bg-white text-[#c40000]' : 'bg-[#c40000] text-white'}`}
+                    aria-label={`${badgeFor(href, unread)} unread`}>
+                    {badgeFor(href, unread) > 99 ? '99+' : badgeFor(href, unread)}
+                  </span>
+                )}
               </Link>
             )
           })}

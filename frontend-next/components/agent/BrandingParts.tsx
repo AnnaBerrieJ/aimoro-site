@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import * as api from '@/lib/agent'
 import { BRANDING_FLOW, BRANDING_LABELS, fileSize, shortDate, type BrandingFile, type BrandingStatus } from '@/lib/agent'
-import { ErrorNote, inputClass, labelClass, primaryBtn, secondaryBtn } from './ui'
+import { ErrorNote, inputClass, labelClass, primaryBtn } from './ui'
 
 const STYLES: Record<BrandingStatus, string> = {
   awaiting_payment: 'bg-amber-50 text-amber-800 border-amber-200',
@@ -96,19 +96,30 @@ export function BrandingFileGrid({ projectId, files, onDelete, empty }: {
   )
 }
 
-/** File picker + optional message + upload button with a progress bar. */
+const ACCEPT = '.jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.zip,.ai,.eps,.psd,.ttf,.otf'
+
+/** Drop zone (click or drag files in) + optional message + upload button with a progress bar. */
 export function UploadBox({ label, button, withMessage = false, messagePlaceholder = '', onUpload, hint }: {
   label: string; button: string; withMessage?: boolean; messagePlaceholder?: string; hint?: string
   onUpload: (files: File[], message: string, onProgress: (pct: number) => void) => Promise<unknown>
 }) {
+  const uid = useId()
   const [files, setFiles] = useState<File[]>([])
   const [message, setMessage] = useState('')
   const [pct, setPct] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
   const input = useRef<HTMLInputElement>(null)
 
+  const addFiles = (list: FileList | null) => {
+    if (!list?.length) return
+    const incoming = Array.from(list)
+    setFiles(prev => [...prev, ...incoming.filter(f => !prev.some(p => p.name === f.name && p.size === f.size))])
+    setError(null)
+  }
+
   async function submit() {
-    if (!files.length) { setError('Choose at least one file'); return }
+    if (!files.length) { setError('Choose at least one file first'); return }
     setError(null); setPct(0)
     try {
       await onUpload(files, message, setPct)
@@ -121,21 +132,43 @@ export function UploadBox({ label, button, withMessage = false, messagePlacehold
   return (
     <div className="space-y-3">
       <div>
-        <label className={labelClass}>{label}</label>
-        <input ref={input} type="file" multiple onChange={e => setFiles(Array.from(e.target.files ?? []))}
-          accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.zip,.ai,.eps,.psd,.ttf,.otf"
-          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200" />
+        <p className={labelClass}>{label}</p>
+        <label htmlFor={uid}
+          onDragOver={e => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={e => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) }}
+          className={`flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-6 text-center cursor-pointer transition-colors ${dragging ? 'border-[#c40000] bg-[#c40000]/5' : 'border-slate-300 hover:border-slate-400 bg-slate-50'}`}>
+          <span className="text-sm font-semibold text-slate-800">Click to choose files, or drag them here</span>
+          <span className="text-xs text-slate-500">Images, PDF, SVG, AI, EPS, PSD, fonts or ZIP</span>
+        </label>
+        <input id={uid} ref={input} type="file" multiple accept={ACCEPT} className="sr-only"
+          onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
         {hint && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
+        {files.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {files.map(f => (
+              <li key={f.name + f.size} className="flex items-center justify-between gap-2 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
+                <span className="truncate text-slate-700">{f.name} <span className="text-slate-400">· {fileSize(f.size)}</span></span>
+                <button type="button" disabled={pct !== null} onClick={() => setFiles(fs => fs.filter(x => x !== f))}
+                  className="shrink-0 font-semibold text-slate-400 hover:text-red-600">Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       {withMessage && (
-        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={2} placeholder={messagePlaceholder} className={inputClass} />
+        <div>
+          <label className={labelClass} htmlFor={`${uid}-msg`}>Note for the customer (optional)</label>
+          <textarea id={`${uid}-msg`} value={message} onChange={e => setMessage(e.target.value)} rows={3}
+            placeholder={messagePlaceholder} className={inputClass} />
+        </div>
       )}
       <ErrorNote message={error} />
       {pct !== null && (
         <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-[#c40000] transition-all" style={{ width: `${pct}%` }} /></div>
       )}
-      <button type="button" onClick={submit} disabled={pct !== null || !files.length} className={files.length ? primaryBtn : secondaryBtn}>
-        {pct !== null ? `Uploading… ${pct}%` : button}
+      <button type="button" onClick={submit} disabled={pct !== null} className={primaryBtn}>
+        {pct !== null ? `Uploading… ${pct}%` : files.length ? `${button} (${files.length} file${files.length === 1 ? '' : 's'})` : button}
       </button>
     </div>
   )

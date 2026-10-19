@@ -177,6 +177,7 @@ export interface EmailDraftBrief { id: number; request_id: number; product_name:
 
 export interface AdminRequest extends ProductRequest {
   admin_notes: string
+  admin_unread: boolean
   customer: { id: number; name: string; email: string; phone: string; country: string | null; island: string; address: string }
   listings: Listing[]
   quotes: AdminQuote[]
@@ -494,7 +495,7 @@ export interface BrandingProject {
   files: BrandingFile[]; timeline: TimelineEvent[]
 }
 export interface AdminBrandingProject extends BrandingProject {
-  admin_notes: string; payment_ref: string
+  admin_notes: string; payment_ref: string; admin_unread: boolean
   customer: AdminRequest['customer']
   events: AdminEvent[]; notifications: NotificationLog[]
 }
@@ -565,3 +566,11 @@ export const adminDeleteBrandingFile = (fileId: number) =>
 
 export const fileSize = (n: number) =>
   n >= 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`
+
+// ── admin unread badges + password reset ──────────────────────────────────────
+
+export const adminUnread = () => request<{ requests: number; branding: number }>('/admin/unread')
+export const forgotPassword = (email: string) =>
+  request<{ ok: boolean }>('/auth/forgot-password', { method: 'POST', body: json({ email }) })
+export const resetPassword = (token: string, password: string) =>
+  request<{ token: string; user: User }>('/auth/reset-password', { method: 'POST', body: json({ token, password }) })

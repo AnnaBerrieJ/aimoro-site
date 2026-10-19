@@ -2,11 +2,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..auth import admin_emails, create_token, get_current_user, hash_password, verify_password
+from ..auth import (admin_emails, create_reset_token, create_token, get_current_user, hash_password,
+                    user_from_reset_token, verify_password)
 from ..db import get_db
 from ..models import User
-from ..notify import send_welcome
-from ..schemas import LoginIn, SignupIn, TokenOut, UserOut
+from ..notify import send_password_reset, send_welcome
+from ..schemas import ForgotPasswordIn, LoginIn, ResetPasswordIn, SignupIn, TokenOut, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -47,3 +48,21 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Always answers the same way, so it can't be used to find out who has an account."""
+    user = db.scalar(select(User).where(User.email == body.email))
+    if user is not None:
+        send_password_reset(db, background, user, create_reset_token(user))
+        db.commit()
+    return {"ok": True}
+
+
+@router.post("/reset-password", response_model=TokenOut)
+def reset_password(body: ResetPasswordIn, db: Session = Depends(get_db)):
+    user = user_from_reset_token(db, body.token)
+    user.password_hash = hash_password(body.password)
+    db.commit()
+    return TokenOut(token=create_token(user), user=UserOut.model_validate(user))

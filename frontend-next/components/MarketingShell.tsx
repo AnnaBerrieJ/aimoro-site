@@ -1,6 +1,8 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import { useAuth } from './AuthProvider'
 import { CONTACT_EMAIL, CONTACT_WHATSAPP, CONTACT_WHATSAPP_2, whatsappLink } from '@/lib/agent'
@@ -17,6 +19,12 @@ function Logo({ dark = false }: { dark?: boolean }) {
 export function MarketingShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const accountHref = user?.role === 'admin' ? '/admin' : '/my-requests'
+  const [menuOpen, setMenuOpen] = useState(false)
+  const pathname = usePathname()
+  useEffect(() => { setMenuOpen(false) }, [pathname])
+  const mobileLinks: [string, string][] = [
+    ['How it works', '/#how'], ['Why AIMORO', '/#why'], ['Branding', '/branding'], ['FAQ', '/#faq'],
+  ]
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-[#0f172a]">
@@ -41,8 +49,30 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
                 <Link href="/signup" className="inline-flex items-center rounded-xl bg-[#c40000] hover:bg-[#950000] text-white text-sm font-semibold px-4 py-2.5 transition-colors">Start a request</Link>
               </>
             )}
+            <button type="button" onClick={() => setMenuOpen(o => !o)} aria-expanded={menuOpen} aria-label="Menu"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl text-slate-700 hover:bg-slate-100">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d={menuOpen ? 'M6 6l12 12M18 6L6 18' : 'M4 7h16M4 12h16M4 17h16'} />
+              </svg>
+            </button>
           </div>
         </div>
+        {menuOpen && (
+          <nav className="md:hidden border-t border-slate-100 bg-white px-4 pb-4 pt-2" aria-label="Mobile">
+            <ul className="divide-y divide-slate-100">
+              {mobileLinks.map(([label, href]) => (
+                <li key={href}>
+                  <Link href={href} onClick={() => setMenuOpen(false)} className="flex items-center justify-between py-3 text-base font-semibold text-slate-800">
+                    {label}
+                    {label === 'Branding' && <span className="text-[10px] font-bold uppercase tracking-wider text-[#c40000] bg-[#c40000]/10 rounded-full px-2 py-0.5">New</span>}
+                  </Link>
+                </li>
+              ))}
+              <li><a href={`mailto:${CONTACT_EMAIL}`} className="block py-3 text-base font-semibold text-slate-800">Contact</a></li>
+              {!user && <li><Link href="/login" onClick={() => setMenuOpen(false)} className="block py-3 text-base font-semibold text-slate-800">Log in</Link></li>}
+            </ul>
+          </nav>
+        )}
       </header>
 
       <main className="flex-1">{children}</main>

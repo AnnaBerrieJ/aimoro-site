@@ -30,7 +30,7 @@ def create_request(body: RequestIn, background: BackgroundTasks,
     data["delivery_address"] = data["delivery_address"].strip() or user.address
     if not data["delivery_address"]:
         raise HTTPException(400, "Please add a delivery address")
-    req = ProductRequest(user_id=user.id, **data)
+    req = ProductRequest(user_id=user.id, admin_unread=True, **data)
     db.add(req)
     db.flush()
     add_event(db, req, "created", "Request received. We're looking for the best supplier for you.")
@@ -117,6 +117,7 @@ def cancel_request(request_id: int, user: User = Depends(get_current_user), db: 
     if req.status not in CANCELLABLE:
         raise HTTPException(400, "This request can no longer be cancelled")
     req.status = "cancelled"
+    req.admin_unread = True
     add_event(db, req, "cancelled", "You cancelled this request.")
     db.commit()
     return to_customer(req)
@@ -149,6 +150,7 @@ def approve_quote(request_id: int, quote_id: int | None = Query(default=None),
         raise HTTPException(400, "This quote has expired. We'll send you an updated one.")
 
     quote.status = "approved"
+    req.admin_unread = True
     for other in opts:
         if other is not quote:
             other.status = "superseded"
@@ -224,6 +226,7 @@ def confirm_payment(invoice_id: int, background: BackgroundTasks, session_id: st
         if session.get("payment_status") != "paid" or session.get("client_reference_id") != str(inv.id):
             raise HTTPException(400, "Your payment hasn't gone through yet")
         mark_invoice_paid(db, background, inv, f"stripe:{session_id}")
+        req.admin_unread = True
         db.commit()
     return to_customer(req)
 

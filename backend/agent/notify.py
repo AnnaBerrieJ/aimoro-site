@@ -95,6 +95,26 @@ def send_welcome(db: Session, background: BackgroundTasks | None, user) -> Notif
     return n
 
 
+def send_password_reset(db: Session, background: BackgroundTasks | None, user, token: str) -> Notification:
+    """Password reset link. Sent straight away (never held for review)."""
+    first = (user.name or "").split(" ")[0] or "there"
+    body = "\n\n".join([
+        f"Hi {first},",
+        "We received a request to reset the password for your AIMORO account. "
+        "Use this link to choose a new password. It works once and expires in 1 hour:",
+        f"{SITE_URL}/reset-password?token={token}",
+        "If you didn't ask for this, you can ignore this email. Your password won't change.",
+        "Kind regards,\n" + os.getenv("EMAIL_SENDER_NAME", "Ashley"),
+    ])
+    n = Notification(user_id=user.id, request_id=None, channel="email", to_address=user.email,
+                     subject="Reset your AIMORO password", body=body, status="queued")
+    db.add(n)
+    db.flush()
+    if background is not None:
+        background.add_task(deliver, n.id)
+    return n
+
+
 def notify_admins(db: Session, background: BackgroundTasks | None, req: ProductRequest,
                   subject: str, message: str) -> None:
     for email in sorted(admin_emails()):
