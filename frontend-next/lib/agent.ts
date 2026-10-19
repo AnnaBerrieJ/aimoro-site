@@ -495,7 +495,7 @@ export interface BrandingProject {
   files: BrandingFile[]; timeline: TimelineEvent[]
 }
 export interface AdminBrandingProject extends BrandingProject {
-  admin_notes: string; payment_ref: string; admin_unread: boolean
+  admin_notes: string; payment_ref: string; admin_unread: boolean; drive_folder_url: string | null
   customer: AdminRequest['customer']
   events: AdminEvent[]; notifications: NotificationLog[]
 }

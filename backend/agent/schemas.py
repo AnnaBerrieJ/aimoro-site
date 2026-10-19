@@ -464,6 +464,7 @@ class BrandingOut(BaseModel):
 class AdminBrandingOut(BrandingOut):
     admin_notes: str
     admin_unread: bool = False
+    drive_folder_url: str | None = None
     payment_ref: str
     customer: CustomerBrief
     events: list[AdminEventOut]

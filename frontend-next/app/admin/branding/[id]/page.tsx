@@ -162,6 +162,9 @@ function AdminBrandingDetail() {
               <div className="flex justify-between"><dt className="text-slate-500">Change rounds used</dt><dd>{p.changes_used} of {p.rounds_included}</dd></div>
             </dl>
             <button className={`${secondaryBtn} w-full mt-3`} onClick={() => api.downloadBrandingInvoice(p).catch(e => setError(e.message))}>Download invoice</button>
+            {p.drive_folder_url && (
+              <a href={p.drive_folder_url} target="_blank" rel="noopener noreferrer" className={`${secondaryBtn} w-full mt-2`}>Open Google Drive folder</a>
+            )}
           </Card>
 
           <Card>

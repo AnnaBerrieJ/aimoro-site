@@ -16,9 +16,19 @@ The database stays the source of truth. If Google is down or not configured, not
 breaks: errors are logged and the next change syncs again. To backfill everything,
 call POST /admin/gsync (admin only).
 
+Branding projects are mirrored the same way:
+
+  Drive:  AIMORO/Branding/<year>/BRD-0001 - <client> - <business>/
+            AIM-2026-B0001 invoice.pdf   (rewritten on every change)
+            Customer files/, Proofs/Proof set 1/, Final files/  (each file uploaded once)
+          The Branding folder is created next to the Orders folder (or set GDRIVE_BRANDING_FOLDER_ID).
+  Sheet:  one row per project on the "Branding" tab (created with headers if missing).
+          Columns A to N are written; column O (Notes) is yours and never overwritten.
+
 Setup (env vars): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN
 (get it once with scripts/google_auth.py), GDRIVE_ORDERS_FOLDER_ID, GSHEET_TRACKER_ID,
-optional GSHEET_TRACKER_TAB (default "Orders").
+optional GSHEET_TRACKER_TAB (default "Orders"), GDRIVE_BRANDING_FOLDER_ID, GSHEET_BRANDING_TAB
+(default "Branding").
 """
 import json
 import logging
@@ -34,7 +44,8 @@ from sqlalchemy.orm import Session
 
 from .common import active_options, current_quote, upload_path
 from .db import SessionLocal
-from .models import ProductRequest, Quote, RequestEvent, Shipment, WarehousePhoto
+from .models import (BrandingEvent, BrandingFile, BrandingProject, ProductRequest, Quote, RequestEvent, Shipment,
+                     WarehousePhoto)
 
 log = logging.getLogger("aimoro.gsync")
 
@@ -271,6 +282,145 @@ def sync_sheet(req: ProductRequest) -> None:
              params={**params, "insertDataOption": "INSERT_ROWS"}, json=body)
 
 
+# ---------------------------------------------------------------- Branding projects
+
+BRANDING_HEADERS = ["Project ID", "Client", "Island", "Business", "Package", "Price (BSD)", "Status", "Created",
+                    "Invoice no.", "Paid", "Proof sets", "Change rounds used", "Completed", "Drive folder", "Notes"]
+_branding_root: dict[str, str] = {}
+_branding_years: dict[int, str] = {}
+
+
+def bref(p: BrandingProject) -> str:
+    return f"BRD-{p.id:04d}"
+
+
+def _child_folder(parent: str, name: str) -> str:
+    found = [f for f in _list_children(parent) if f["mimeType"] == FOLDER_MIME and f["name"] == name]
+    return found[0]["id"] if found else _create_folder(name, parent)
+
+
+def _branding_root_folder() -> str:
+    """GDRIVE_BRANDING_FOLDER_ID, else a "Branding" folder next to the Orders folder."""
+    if "id" not in _branding_root:
+        own = _env("GDRIVE_BRANDING_FOLDER_ID")
+        if own:
+            _branding_root["id"] = own
+        else:
+            orders = _env("GDRIVE_ORDERS_FOLDER_ID")
+            parents = _api("GET", f"{DRIVE}/{orders}", params={"fields": "parents"}).json().get("parents") or [orders]
+            _branding_root["id"] = _child_folder(parents[0], "Branding")
+    return _branding_root["id"]
+
+
+def _branding_year_folder(year: int) -> str:
+    if year not in _branding_years:
+        _branding_years[year] = _child_folder(_branding_root_folder(), str(year))
+    return _branding_years[year]
+
+
+def ensure_branding_folder(db: Session, p: BrandingProject) -> str:
+    if p.drive_folder_id and _is_live_folder(p.drive_folder_id):
+        return p.drive_folder_id
+    parent = _branding_year_folder(p.created_at.year)
+    existing = [f for f in _list_children(parent) if f["mimeType"] == FOLDER_MIME and f["name"].startswith(bref(p))]
+    client = (p.user.name or p.user.email).strip()
+    name = f"{bref(p)} \u2013 {client} \u2013 {p.business_name.strip()}"[:200]
+    p.drive_folder_id = existing[0]["id"] if existing else _create_folder(name, parent)
+    db.commit()
+    return p.drive_folder_id
+
+
+def sync_branding_drive(db: Session, p: BrandingProject) -> str:
+    from .invoice_pdf import build_branding_invoice_pdf
+
+    folder = ensure_branding_folder(db, p)
+    have = {f["name"]: f["id"] for f in _list_children(folder)}
+    if p.invoice_number:
+        name = f"{p.invoice_number} invoice.pdf"
+        _upload(name, build_branding_invoice_pdf(p), "application/pdf", folder, have.get(name))
+
+    subfolders: dict[str, str] = {}
+    listings: dict[str, set[str]] = {}
+
+    def target(f: BrandingFile) -> str:
+        if f.kind == "reference":
+            path = ("Customer files",)
+        elif f.kind == "proof":
+            path = ("Proofs", f"Proof set {f.round_no or 1}")
+        else:
+            path = ("Final files",)
+        key, parent = "", folder
+        for part in path:
+            key = f"{key}/{part}"
+            if key not in subfolders:
+                subfolders[key] = _child_folder(parent, part)
+            parent = subfolders[key]
+        return parent
+
+    for f in p.files:
+        parent = target(f)
+        if parent not in listings:
+            listings[parent] = {x["name"] for x in _list_children(parent)}
+        name = f"{f.id} - {f.filename}"  # file id keeps names unique
+        local = upload_path(f.path)
+        if name in listings[parent] or not os.path.exists(local):
+            continue
+        with open(local, "rb") as fh:
+            _upload(name, fh, f.content_type or "application/octet-stream", parent)
+        listings[parent].add(name)
+    return folder
+
+
+def branding_row(p: BrandingProject) -> list:
+    from .invoice_pdf import BRANDING_PACKAGE_NAMES
+
+    folder = (f'=HYPERLINK("{folder_url(p.drive_folder_id)}","Open folder")' if p.drive_folder_id else "")
+    return [
+        f"'{bref(p)}", p.user.name, p.user.island, p.business_name,
+        BRANDING_PACKAGE_NAMES.get(p.package, p.package), p.price_bsd, p.status.replace("_", " "),
+        _d(p.created_at), f"'{p.invoice_number}" if p.invoice_number else "", _d(p.paid_at),
+        p.proof_round, f"{p.changes_used} of {p.rounds_included}", _d(p.completed_at), folder,
+    ]
+
+
+_tabs_ready: set[str] = set()
+
+
+def _ensure_tab(sheet: str, tab: str, headers: list[str]) -> None:
+    if tab in _tabs_ready:
+        return
+    meta = _api("GET", f"{SHEETS}/{sheet}", params={"fields": "sheets.properties.title"}).json()
+    titles = {s["properties"]["title"] for s in meta.get("sheets", [])}
+    if tab not in titles:
+        _api("POST", f"{SHEETS}/{sheet}:batchUpdate", json={"requests": [{"addSheet": {"properties": {
+            "title": tab, "gridProperties": {"frozenRowCount": 1}}}}]})
+        last = chr(ord("A") + len(headers) - 1)
+        _api("PUT", f"{SHEETS}/{sheet}/values/'{tab}'!A1:{last}1", params={"valueInputOption": "RAW"},
+             json={"values": [headers]})
+    _tabs_ready.add(tab)
+
+
+def sync_branding_sheet(p: BrandingProject) -> None:
+    sheet, tab = _env("GSHEET_TRACKER_ID"), _env("GSHEET_BRANDING_TAB", "Branding")
+    _ensure_tab(sheet, tab, BRANDING_HEADERS)
+    col_a = _api("GET", f"{SHEETS}/{sheet}/values/'{tab}'!A:A").json().get("values", [])
+    row_no = next((i + 1 for i, v in enumerate(col_a) if v and v[0].strip() == bref(p)), None)
+    body = {"values": [branding_row(p)]}
+    params = {"valueInputOption": "USER_ENTERED"}
+    if row_no:
+        _api("PUT", f"{SHEETS}/{sheet}/values/'{tab}'!A{row_no}:N{row_no}", params=params, json=body)
+    else:
+        _api("POST", f"{SHEETS}/{sheet}/values/'{tab}'!A:N:append",
+             params={**params, "insertDataOption": "INSERT_ROWS"}, json=body)
+
+
+def sync_branding(db: Session, p: BrandingProject) -> None:
+    if drive_enabled():
+        sync_branding_drive(db, p)
+    if sheet_enabled():
+        sync_branding_sheet(p)
+
+
 # ---------------------------------------------------------------- Orchestration
 
 def sync_request(db: Session, req: ProductRequest) -> None:
@@ -283,7 +433,7 @@ def sync_request(db: Session, req: ProductRequest) -> None:
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="gsync")  # one at a time: no duplicate rows
 
 
-def _run(request_ids: set[int], shipment_ids: set[int]) -> None:
+def _run(request_ids: set[int], shipment_ids: set[int], branding_ids: set[int] = frozenset()) -> None:
     db = SessionLocal()
     db.info[SKIP_KEY] = True
     try:
@@ -299,19 +449,28 @@ def _run(request_ids: set[int], shipment_ids: set[int]) -> None:
             except Exception:  # noqa: BLE001  never let Google break the site
                 db.rollback()
                 log.exception("Google sync failed for request %s", rid)
+        for bid in sorted(branding_ids):
+            p = db.get(BrandingProject, bid)
+            if p is None:
+                continue
+            try:
+                sync_branding(db, p)
+            except Exception:  # noqa: BLE001  never let Google break the site
+                db.rollback()
+                log.exception("Google sync failed for branding project %s", bid)
     finally:
         db.close()
 
 
-def submit(request_ids, shipment_ids=()) -> None:
-    if enabled() and (request_ids or shipment_ids):
-        _executor.submit(_run, set(request_ids), set(shipment_ids))
+def submit(request_ids, shipment_ids=(), branding_ids=()) -> None:
+    if enabled() and (request_ids or shipment_ids or branding_ids):
+        _executor.submit(_run, set(request_ids), set(shipment_ids), set(branding_ids))
 
 
 def _after_flush(session: Session, _ctx) -> None:
     if session.info.get(SKIP_KEY) or not enabled():
         return
-    ids = session.info.setdefault(IDS_KEY, {"req": set(), "ship": set()})
+    ids = session.info.setdefault(IDS_KEY, {"req": set(), "ship": set(), "brand": set()})
     for obj in list(session.new) + list(session.dirty):
         if isinstance(obj, ProductRequest):
             ids["req"].add(obj.id)
@@ -319,12 +478,16 @@ def _after_flush(session: Session, _ctx) -> None:
             ids["req"].add(obj.request_id)
         elif isinstance(obj, Shipment):
             ids["ship"].add(obj.id)
+        elif isinstance(obj, BrandingProject):
+            ids["brand"].add(obj.id)
+        elif isinstance(obj, (BrandingFile, BrandingEvent)):
+            ids["brand"].add(obj.project_id)
 
 
 def _after_commit(session: Session) -> None:
     ids = session.info.pop(IDS_KEY, None)
     if ids:
-        submit(ids["req"] - {None}, ids["ship"] - {None})
+        submit(ids["req"] - {None}, ids["ship"] - {None}, ids["brand"] - {None})
 
 
 def _after_rollback(session: Session) -> None:

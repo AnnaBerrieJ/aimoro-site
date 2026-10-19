@@ -17,7 +17,8 @@ def google_on(monkeypatch):
                  "GDRIVE_ORDERS_FOLDER_ID": "orders", "GSHEET_TRACKER_ID": "sheet"}.items():
         monkeypatch.setenv(k, v)
     submitted = []
-    monkeypatch.setattr(gsync, "submit", lambda req_ids, ship_ids=(): submitted.append((set(req_ids), set(ship_ids))))
+    monkeypatch.setattr(gsync, "submit", lambda req_ids, ship_ids=(), branding_ids=(): submitted.append(
+        (set(req_ids), set(ship_ids), set(branding_ids))))
     return submitted
 
 
@@ -32,7 +33,7 @@ def users():
 
 def test_commit_hook_queues_changed_requests(google_on, users):
     rid = client.post("/requests", headers=users["a"], json={"product_name": "Rattan beach bag", "quantity": 2}).json()["id"]
-    assert any(rid in reqs for reqs, _ in google_on)
+    assert any(rid in reqs for reqs, _, _ in google_on)
 
 
 def test_hook_is_silent_when_not_configured(monkeypatch, users):
@@ -92,5 +93,58 @@ def test_sync_uploads_files_and_appends_sheet_row(google_on, monkeypatch, users)
         assert any(u.endswith("invoice.pdf") for u in uploads)
         assert sheet_calls[-1][0] == "POST" and sheet_calls[-1][1].endswith(":append")
         assert db.get(ProductRequest, rid).drive_folder_id == "F2"
+    finally:
+        db.close()
+
+
+def test_branding_hook_and_sync(google_on, monkeypatch, users):
+    import io
+    from agent.models import BrandingProject
+    pid = client.post("/branding", headers=users["a"], json={"package": "standard", "business_name": "Island Bites"}).json()["id"]
+    assert any(pid in brands for _, _, brands in google_on)          # commit hook queues the project
+    client.post(f"/admin/branding/{pid}/mark-paid", headers=users["admin"])
+    client.post(f"/admin/branding/{pid}/proofs", headers=users["admin"],
+                files=[("files", ("logo.png", io.BytesIO(b"\x89PNG" + b"0" * 50), "image/png"))])
+
+    uploads, created, sheet_calls = [], [], []
+    monkeypatch.setattr(gsync, "_branding_root", {})
+    monkeypatch.setattr(gsync, "_branding_years", {})
+    monkeypatch.setattr(gsync, "_tabs_ready", set())
+    monkeypatch.setattr(gsync, "_list_children", lambda parent: [])
+    monkeypatch.setattr(gsync, "_create_folder", lambda name, parent: created.append(name) or f"F{len(created)}")
+    monkeypatch.setattr(gsync, "_upload", lambda name, content, mime, parent, file_id=None: uploads.append((name, parent)) or "x")
+
+    class Resp:
+        def __init__(self, data=None):
+            self._d = data or {}
+
+        def json(self):
+            return self._d
+
+    def fake_api(method, url, **kw):
+        sheet_calls.append((method, url))
+        if url.endswith("/orders"):
+            return Resp({"parents": ["aimoro-root"]})
+        if "fields" in kw.get("params", {}) and "sheets.properties" in kw["params"]["fields"]:
+            return Resp({"sheets": [{"properties": {"title": "Orders"}}]})
+        return Resp({"values": [["Project ID"]]})
+
+    monkeypatch.setattr(gsync, "_api", fake_api)
+    db = SessionLocal()
+    db.info[gsync.SKIP_KEY] = True
+    try:
+        p = db.get(BrandingProject, pid)
+        p.drive_folder_id = None
+        gsync.sync_branding(db, p)
+        assert created[:3] == ["Branding", created[1], created[2]] and created[1].isdigit()
+        assert created[2].startswith(f"BRD-{pid:04d} ")
+        assert "Proofs" in created and "Proof set 1" in created
+        names = [n for n, _ in uploads]
+        assert any(n.endswith("invoice.pdf") and "-B" in n for n in names)
+        assert any(n.endswith(" - logo.png") for n in names)
+        assert any(m == "POST" and u.endswith(":batchUpdate") for m, u in sheet_calls)   # Branding tab created
+        assert sheet_calls[-1][0] == "POST" and sheet_calls[-1][1].endswith("!A:N:append")
+        row = gsync.branding_row(db.get(BrandingProject, pid))
+        assert row[0] == f"'BRD-{pid:04d}" and row[4] == "Standard" and len(row) == len(gsync.BRANDING_HEADERS) - 1
     finally:
         db.close()

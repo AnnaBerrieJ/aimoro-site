@@ -86,6 +86,7 @@ def to_admin(db: Session, p: BrandingProject) -> AdminBrandingOut:
         files=[BrandingFileOut.model_validate(f) for f in p.files],
         timeline=[EventOut.model_validate(e) for e in reversed(p.events) if e.customer_visible],
         admin_notes=p.admin_notes, payment_ref=p.payment_ref, admin_unread=bool(p.admin_unread),
+        drive_folder_url=f"https://drive.google.com/drive/folders/{p.drive_folder_id}" if p.drive_folder_id else None,
         customer=CustomerBrief.model_validate(p.user),
         events=[AdminEventOut.model_validate(e) for e in reversed(p.events)],
         notifications=[NotificationOut.model_validate(n) for n in notes],

@@ -272,6 +272,8 @@ class BrandingProject(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     admin_notes: Mapped[str] = mapped_column(Text, default="")
     admin_unread: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=True)
+    # Google Drive folder holding this project's files (set by gsync.py)
+    drive_folder_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

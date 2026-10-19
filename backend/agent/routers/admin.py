@@ -352,6 +352,8 @@ def gsync_all(db: Session = Depends(get_db)):
     from .. import gsync
     if not gsync.enabled():
         raise HTTPException(400, "Google sync is not configured (see backend/agent/gsync.py)")
+    from ..models import BrandingProject
     ids = list(db.scalars(select(ProductRequest.id).order_by(ProductRequest.id)))
-    gsync.submit(ids)
-    return {"queued": len(ids)}
+    bids = list(db.scalars(select(BrandingProject.id).order_by(BrandingProject.id)))
+    gsync.submit(ids, (), bids)
+    return {"queued": len(ids), "branding_queued": len(bids)}
