@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth } from './AuthProvider'
-import { CONTACT_EMAIL } from '@/lib/agent'
+import { CONTACT_EMAIL, CONTACT_WHATSAPP, CONTACT_WHATSAPP_2, whatsappLink } from '@/lib/agent'
 
 function Logo({ dark = false }: { dark?: boolean }) {
   return (
@@ -26,6 +26,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600" aria-label="Main">
             <Link href="/#how" className="hover:text-[#0f172a]">How it works</Link>
             <Link href="/#why" className="hover:text-[#0f172a]">Why AIMORO</Link>
+            <Link href="/branding" className="hover:text-[#0f172a]">Branding</Link>
             <Link href="/#faq" className="hover:text-[#0f172a]">FAQ</Link>
             <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-[#0f172a]">Contact</a>
           </nav>
@@ -57,6 +58,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
             <ul className="space-y-2 text-sm">
               <li><Link href="/#how" className="hover:text-white">How it works</Link></li>
               <li><Link href="/#why" className="hover:text-white">Why AIMORO</Link></li>
+              <li><Link href="/branding" className="hover:text-white">Branding</Link></li>
               <li><Link href="/#faq" className="hover:text-white">FAQ</Link></li>
             </ul>
           </div>
@@ -72,6 +74,9 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
             <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Contact & legal</p>
             <ul className="space-y-2 text-sm">
               <li><a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-white break-all">{CONTACT_EMAIL}</a></li>
+              {[CONTACT_WHATSAPP, CONTACT_WHATSAPP_2].map(n => (
+                <li key={n}><a href={whatsappLink(n)} target="_blank" rel="noopener noreferrer" className="hover:text-white">WhatsApp {n}</a></li>
+              ))}
               <li><Link href="/terms" className="hover:text-white">Terms of Service</Link></li>
               <li><Link href="/privacy" className="hover:text-white">Privacy Policy</Link></li>
             </ul>

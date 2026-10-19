@@ -26,9 +26,11 @@ from .models import Notification, ProductRequest, RequestEvent
 
 SITE_URL = os.getenv("SITE_URL", "http://localhost:3000").rstrip("/")
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "aimoroinfo@gmail.com")
-CONTACT_WHATSAPP = os.getenv("CONTACT_WHATSAPP", "+1 281-673-6703")
+CONTACT_WHATSAPP = os.getenv("CONTACT_WHATSAPP", "+1 242-426-1965")
+CONTACT_WHATSAPP_2 = os.getenv("CONTACT_WHATSAPP_2", "+1 281-673-6703")
+CONTACT_WHATSAPP_ALL = " or ".join(n for n in (CONTACT_WHATSAPP, CONTACT_WHATSAPP_2) if n)
 EMAIL_LOGO_URL = os.getenv("EMAIL_LOGO_URL", f"{SITE_URL}/email-logo.png")
-SIGNATURE_TEXT = (f"AIMORO\n{SITE_URL.split('://')[-1]} | {CONTACT_EMAIL} | WhatsApp {CONTACT_WHATSAPP}\n"
+SIGNATURE_TEXT = (f"AIMORO\n{SITE_URL.split('://')[-1]} | {CONTACT_EMAIL} | WhatsApp {CONTACT_WHATSAPP_ALL}\n"
                   "You tell us what you want. We find it and deliver it to your door.")
 
 
@@ -81,7 +83,7 @@ def send_welcome(db: Session, background: BackgroundTasks | None, user) -> Notif
         "3. Choose an option and pay your invoice.\n"
         "4. We order it, ship it and deliver it to your address.",
         f"Ready to start? Send your first request here: {SITE_URL}/my-requests/new",
-        f"If you have any questions, reply to this email or message us on WhatsApp at {CONTACT_WHATSAPP}.",
+        f"If you have any questions, reply to this email or message us on WhatsApp at {CONTACT_WHATSAPP_ALL}.",
         "Kind regards,\n" + os.getenv("EMAIL_SENDER_NAME", "Ashley"),
     ])
     n = Notification(user_id=user.id, request_id=None, channel="email", to_address=user.email,
@@ -147,7 +149,9 @@ def email_text(body: str) -> str:
 def email_html(body: str) -> str:
     """Branded HTML version of a notification, with the AIMORO signature footer."""
     paras = _blocks_html(body)
-    wa = re.sub(r"\D", "", CONTACT_WHATSAPP)
+    wa_links = " &nbsp;|&nbsp; ".join(
+        '<a href="https://wa.me/%s" style="color:#475569;text-decoration:none;">%s</a>' % (re.sub(r"\D", "", n), n)
+        for n in (CONTACT_WHATSAPP, CONTACT_WHATSAPP_2) if n)
     site = SITE_URL.split("://")[-1]
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#F1F5F9;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:24px 12px;">
@@ -162,7 +166,7 @@ def email_html(body: str) -> str:
 <div style="font-size:14px;font-weight:bold;color:#C40000;">AIMORO</div>
 <a href="{SITE_URL}" style="color:#0F172A;text-decoration:none;font-weight:bold;">{site}</a> &nbsp;|&nbsp;
 <a href="mailto:{CONTACT_EMAIL}" style="color:#475569;text-decoration:none;">{CONTACT_EMAIL}</a><br>
-WhatsApp: <a href="https://wa.me/{wa}" style="color:#475569;text-decoration:none;">{CONTACT_WHATSAPP}</a><br>
+WhatsApp: {wa_links}<br>
 <span style="color:#94A3B8;font-style:italic;">You tell us what you want. We find it and deliver it to your door.</span>
 </td></tr></table>
 </td></tr></table>

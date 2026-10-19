@@ -25,6 +25,13 @@ SHIPMENT_METHODS = ["courier", "air", "sea"]
 # (to the customer's address).
 SHIPMENT_STATUSES = ["preparing", "in_transit", "delivered"]
 
+# Branding projects (design work, separate from product sourcing).
+BRANDING_STATUSES = [
+    "awaiting_payment", "in_design", "proofs_ready", "changes_requested",
+    "approved", "completed", "cancelled",
+]
+BRANDING_FILE_KINDS = ["reference", "proof", "final"]
+
 
 class User(Base):
     __tablename__ = "users"
@@ -218,6 +225,7 @@ class Notification(Base):
     status: Mapped[str] = mapped_column(String(20), default="queued")
     error: Mapped[str] = mapped_column(Text, default="")
     attachments: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list, e.g. ["invoice"]
+    branding_id: Mapped[int | None] = mapped_column(ForeignKey("branding_projects.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -234,3 +242,69 @@ class WarehousePhoto(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     request: Mapped[ProductRequest] = relationship(back_populates="warehouse_photos")
+
+
+class BrandingProject(Base):
+    """A branding package order: fixed price, design rounds, proofs and final files."""
+    __tablename__ = "branding_projects"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    package: Mapped[str] = mapped_column(String(20))  # basic | standard | full
+    price_bsd: Mapped[float] = mapped_column(Float)
+    rounds_included: Mapped[int] = mapped_column(Integer, default=1)
+    changes_used: Mapped[int] = mapped_column(Integer, default=0)
+    proof_round: Mapped[int] = mapped_column(Integer, default=0)  # proof sets sent so far
+
+    business_name: Mapped[str] = mapped_column(String(255))
+    industry: Mapped[str] = mapped_column(String(255), default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+    style_notes: Mapped[str] = mapped_column(Text, default="")
+    colours: Mapped[str] = mapped_column(String(255), default="")
+    reference_url: Mapped[str] = mapped_column(Text, default="")
+
+    status: Mapped[str] = mapped_column(String(30), default="awaiting_payment", index=True)
+    invoice_number: Mapped[str | None] = mapped_column(String(30), nullable=True, unique=True)
+    payment_ref: Mapped[str] = mapped_column(String(255), default="")
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    admin_notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    user: Mapped[User] = relationship()
+    files: Mapped[list["BrandingFile"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", order_by="BrandingFile.id")
+    events: Mapped[list["BrandingEvent"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", order_by="BrandingEvent.id")
+
+
+class BrandingFile(Base):
+    """reference = uploaded by the customer; proof / final = uploaded by AIMORO."""
+    __tablename__ = "branding_files"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("branding_projects.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    round_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    path: Mapped[str] = mapped_column(Text)
+    filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(100), default="application/octet-stream")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    project: Mapped[BrandingProject] = relationship(back_populates="files")
+
+
+class BrandingEvent(Base):
+    """Timeline entry for a branding project. customer_visible=False entries are admin-only."""
+    __tablename__ = "branding_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("branding_projects.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    message: Mapped[str] = mapped_column(Text)
+    customer_visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    project: Mapped[BrandingProject] = relationship(back_populates="events")

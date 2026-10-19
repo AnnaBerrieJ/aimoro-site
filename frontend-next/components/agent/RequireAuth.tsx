@@ -11,7 +11,8 @@ export function RequireAuth({ admin = false, children }: { admin?: boolean; chil
 
   useEffect(() => {
     if (loading) return
-    if (!user) router.replace(`/login?next=${encodeURIComponent(pathname)}`)
+    // Keep the query string (e.g. ?package=standard) so the visitor lands back on the same step.
+    if (!user) router.replace(`/login?next=${encodeURIComponent(pathname + window.location.search)}`)
   }, [loading, user, router, pathname])
 
   if (loading || !user) {

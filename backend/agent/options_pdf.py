@@ -8,7 +8,7 @@ from fpdf.fonts import FontFace
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from .common import option_out, preview_title, report_fee_bsd, upload_path
-from .invoice_pdf import (CONTACT_EMAIL, CONTACT_WHATSAPP, PAYMENT_METHODS, LIGHT, LOGO_PATH, NAVY, RED, SAND, SITE, SLATE, _date, _delivery_address,
+from .invoice_pdf import (CONTACT_EMAIL, CONTACT_WHATSAPP, CONTACT_WHATSAPP_2, CONTACT_WHATSAPP_ALL, PAYMENT_METHODS, LIGHT, LOGO_PATH, NAVY, RED, SAND, SITE, SLATE, _date, _delivery_address,
                           _money)
 from .models import ProductRequest, Quote
 
@@ -44,7 +44,7 @@ class _Doc(FPDF):
         self.set_font("Helvetica", "", 8.5)
         self.set_text_color(*SLATE)
         self.cell(0, 4.5, _latin1(
-            f"Questions? Email {CONTACT_EMAIL} or WhatsApp {CONTACT_WHATSAPP}."), align="C", new_x="LMARGIN", new_y="NEXT")
+            f"Questions? Email {CONTACT_EMAIL} or WhatsApp {CONTACT_WHATSAPP_ALL}."), align="C", new_x="LMARGIN", new_y="NEXT")
         self.cell(0, 4.5, f"Page {self.page_no()} of {{nb}}", align="C")
 
 
@@ -131,6 +131,9 @@ def _header(pdf: FPDF, req: ProductRequest, opts: list[Quote], preview: bool = F
     pdf.cell(70, 5, CONTACT_EMAIL)
     pdf.set_xy(L + 41, top + 23.5)
     pdf.cell(70, 5, f"WhatsApp {CONTACT_WHATSAPP}")
+    if CONTACT_WHATSAPP_2:
+        pdf.set_xy(L + 41, top + 29)
+        pdf.cell(70, 5, f"WhatsApp {CONTACT_WHATSAPP_2}")
 
     W = pdf.w - 2 * L
     rx = L + W - 80

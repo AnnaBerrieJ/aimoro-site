@@ -7,7 +7,7 @@ import os
 
 from .common import active_options, delivery_address, option_out, report_fee_bsd, report_unlocked
 from .models import ProductRequest
-from .notify import CONTACT_WHATSAPP, SITE_URL
+from .notify import CONTACT_WHATSAPP_ALL, SITE_URL
 
 SENDER_NAME = os.getenv("EMAIL_SENDER_NAME", "Ashley")
 PAYMENT_METHODS = os.getenv("PAYMENT_METHODS", "PayPal, Zelle or RBC bank transfer")
@@ -40,7 +40,7 @@ def _signoff() -> str:
 def _questions(valid_until: str = "") -> str:
     lead = f"The options in this report are valid until **{valid_until}**. " if valid_until else ""
     return (f"{lead}If you have any questions, please reply to this email or message us on WhatsApp "
-            f"at {CONTACT_WHATSAPP}.")
+            f"at {CONTACT_WHATSAPP_ALL}.")
 
 
 FEEDBACK_URL = os.getenv("FEEDBACK_URL", "").strip()

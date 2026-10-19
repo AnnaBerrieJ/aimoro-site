@@ -4,7 +4,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8
 const TOKEN_KEY = 'aimoro_token'
 
 export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'aimoroinfo@gmail.com'
-export const CONTACT_WHATSAPP = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP || '+1 281-673-6703'
+export const CONTACT_WHATSAPP = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP || '+1 242-426-1965'
+export const CONTACT_WHATSAPP_2 = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP_2 || '+1 281-673-6703'
 
 export type RequestStatus =
   | 'received' | 'sourcing' | 'quote_ready' | 'paid'
@@ -459,3 +460,108 @@ export const shortDate = (iso: string) =>
     .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 export const REQUEST_STATUS_OPTIONS: RequestStatus[] = [...STATUS_FLOW, 'cancelled']
+
+// ── branding ──────────────────────────────────────────────────────────────────
+
+export type BrandingStatus =
+  | 'awaiting_payment' | 'in_design' | 'proofs_ready' | 'changes_requested'
+  | 'approved' | 'completed' | 'cancelled'
+export type BrandingPackageKey = 'basic' | 'standard' | 'full'
+
+/** Steps shown to the customer. "Changes requested" shares the design step. */
+export const BRANDING_FLOW: BrandingStatus[] = ['awaiting_payment', 'in_design', 'proofs_ready', 'approved', 'completed']
+export const BRANDING_LABELS: Record<BrandingStatus, string> = {
+  awaiting_payment: 'Awaiting payment',
+  in_design: 'In design',
+  proofs_ready: 'Proofs ready',
+  changes_requested: 'Changes requested',
+  approved: 'Approved',
+  completed: 'Final files delivered',
+  cancelled: 'Cancelled',
+}
+
+export interface BrandingPackage { key: BrandingPackageKey; name: string; price: number; rounds: number; days: string }
+export interface BrandingFile {
+  id: number; kind: 'reference' | 'proof' | 'final'; round_no: number | null
+  filename: string; content_type: string; size_bytes: number; created_at: string
+}
+export interface BrandingProject {
+  id: number; package: BrandingPackageKey; package_name: string; price_bsd: number
+  rounds_included: number; changes_used: number; changes_left: number; proof_round: number
+  business_name: string; industry: string; description: string; style_notes: string; colours: string; reference_url: string
+  status: BrandingStatus; invoice_number: string | null; invoice_due: string | null
+  paid_at: string | null; completed_at: string | null; created_at: string; updated_at: string
+  files: BrandingFile[]; timeline: TimelineEvent[]
+}
+export interface AdminBrandingProject extends BrandingProject {
+  admin_notes: string; payment_ref: string
+  customer: AdminRequest['customer']
+  events: AdminEvent[]; notifications: NotificationLog[]
+}
+export interface BrandingInput {
+  package: BrandingPackageKey; business_name: string; industry: string; description: string
+  style_notes: string; colours: string; reference_url: string
+}
+
+export const brandingPackages = () => request<BrandingPackage[]>('/branding/packages')
+export const createBranding = (body: BrandingInput) =>
+  request<BrandingProject>('/branding', { method: 'POST', body: json(body) })
+export const myBranding = () => request<BrandingProject[]>('/branding')
+export const getBranding = (id: number) => request<BrandingProject>(`/branding/${id}`)
+export const approveBranding = (id: number) => request<BrandingProject>(`/branding/${id}/approve`, { method: 'POST' })
+export const requestBrandingChanges = (id: number, feedback: string) =>
+  request<BrandingProject>(`/branding/${id}/changes`, { method: 'POST', body: json({ feedback }) })
+export const cancelBranding = (id: number) => request<BrandingProject>(`/branding/${id}/cancel`, { method: 'POST' })
+export const startBrandingCheckout = (id: number) =>
+  request<{ url: string }>(`/branding/${id}/checkout`, { method: 'POST' })
+export const confirmBrandingPayment = (id: number, sessionId: string) =>
+  request<BrandingProject>(`/branding/${id}/confirm?session_id=${encodeURIComponent(sessionId)}`, { method: 'POST' })
+export const brandingFilePath = (projectId: number, fileId: number) => `/branding/${projectId}/files/${fileId}`
+export const downloadBrandingInvoice = (p: BrandingProject) =>
+  downloadFile(`/branding/${p.id}/invoice.pdf`, `${p.invoice_number ?? `AIMORO-branding-${p.id}`}.pdf`)
+
+/** Multipart upload with progress (0-100); design files can be large. */
+export function uploadWithProgress<T>(path: string, files: File[], fields: Record<string, string> = {},
+                                      onProgress?: (pct: number) => void): Promise<T> {
+  const fd = new FormData()
+  files.forEach(f => fd.append('files', f))
+  Object.entries(fields).forEach(([k, v]) => fd.append(k, v))
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${API_BASE_URL}${path}`)
+    const token = getToken()
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100)) }
+    xhr.onload = () => {
+      let data: unknown = null
+      try { data = JSON.parse(xhr.responseText) } catch { /* not json */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data as T)
+      else {
+        const d = (data as { detail?: unknown } | null)?.detail
+        reject(new ApiError(xhr.status, typeof d === 'string' ? d : `Upload failed (${xhr.status})`))
+      }
+    }
+    xhr.onerror = () => reject(new ApiError(0, 'Upload failed. Check your connection and try again.'))
+    xhr.send(fd)
+  })
+}
+export const uploadBrandingReferences = (id: number, files: File[], onProgress?: (pct: number) => void) =>
+  uploadWithProgress<BrandingProject>(`/branding/${id}/files`, files, {}, onProgress)
+
+export const adminBrandingSummary = () => request<Record<BrandingStatus, number>>('/admin/branding/summary')
+export const adminBrandingList = (status?: string) =>
+  request<AdminBrandingProject[]>(`/admin/branding${status ? `?status=${status}` : ''}`)
+export const adminBranding = (id: number) => request<AdminBrandingProject>(`/admin/branding/${id}`)
+export const adminUpdateBranding = (id: number, body: { admin_notes?: string; status?: BrandingStatus }) =>
+  request<AdminBrandingProject>(`/admin/branding/${id}`, { method: 'PATCH', body: json(body) })
+export const adminBrandingMarkPaid = (id: number, reference: string) =>
+  request<AdminBrandingProject>(`/admin/branding/${id}/mark-paid?reference=${encodeURIComponent(reference)}`, { method: 'POST' })
+export const adminSendProofs = (id: number, files: File[], message: string, onProgress?: (pct: number) => void) =>
+  uploadWithProgress<AdminBrandingProject>(`/admin/branding/${id}/proofs`, files, { message }, onProgress)
+export const adminDeliverFinals = (id: number, files: File[], message: string, onProgress?: (pct: number) => void) =>
+  uploadWithProgress<AdminBrandingProject>(`/admin/branding/${id}/finals`, files, { message }, onProgress)
+export const adminDeleteBrandingFile = (fileId: number) =>
+  request<AdminBrandingProject>(`/admin/branding/files/${fileId}`, { method: 'DELETE' })
+
+export const fileSize = (n: number) =>
+  n >= 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`

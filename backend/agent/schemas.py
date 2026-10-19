@@ -395,3 +395,73 @@ class AdminRequestUpdate(BaseModel):
 
 
 ProposalIn.model_rebuild()
+
+
+# ---------- branding ----------
+
+class BrandingIn(BaseModel):
+    package: str = Field(pattern="^(basic|standard|full)$")
+    business_name: str = Field(min_length=2, max_length=255)
+    industry: str = Field(default="", max_length=255)
+    description: str = Field(default="", max_length=5000)
+    style_notes: str = Field(default="", max_length=5000)
+    colours: str = Field(default="", max_length=255)
+    reference_url: str = Field(default="", max_length=2000)
+
+
+class BrandingFileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    kind: str
+    round_no: int | None
+    filename: str
+    content_type: str
+    size_bytes: int
+    created_at: datetime
+
+
+class BrandingOut(BaseModel):
+    id: int
+    package: str
+    package_name: str
+    price_bsd: float
+    rounds_included: int
+    changes_used: int
+    changes_left: int
+    proof_round: int
+    business_name: str
+    industry: str
+    description: str
+    style_notes: str
+    colours: str
+    reference_url: str
+    status: str
+    invoice_number: str | None
+    invoice_due: datetime | None
+    paid_at: datetime | None
+    completed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    files: list[BrandingFileOut]
+    timeline: list[EventOut]
+
+
+class AdminBrandingOut(BrandingOut):
+    admin_notes: str
+    payment_ref: str
+    customer: CustomerBrief
+    events: list[AdminEventOut]
+    notifications: list[NotificationOut]
+
+
+class AdminBrandingUpdate(BaseModel):
+    admin_notes: str | None = None
+    status: str | None = None
+
+
+class BrandingChangesIn(BaseModel):
+    feedback: str = Field(min_length=3, max_length=5000)
+
+
+class BrandingUploadMessage(BaseModel):
+    message: str = ""

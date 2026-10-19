@@ -8,7 +8,7 @@ import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
 
 // Public pages get a website layout (top menu + footer); the signed-in app keeps the sidebar.
-const PUBLIC_PATHS = ['/', '/login', '/signup', '/terms', '/privacy']
+const PUBLIC_PATHS = ['/', '/branding', '/login', '/signup', '/terms', '/privacy']
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)

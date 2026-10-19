@@ -9,6 +9,7 @@ from database import create_tables, save_supplier_to_db, get_saved_suppliers, de
 from agent.db import init_db
 from agent.routers import admin as agent_admin, auth as agent_auth, customer as agent_customer, operations as agent_ops
 from agent.routers import emails as agent_emails
+from agent.routers import branding as agent_branding
 from agent import gsync
 
 app = FastAPI(title="Aimoro Smart Sourcing System")
@@ -22,6 +23,8 @@ app.include_router(agent_customer.router)
 app.include_router(agent_admin.router)
 app.include_router(agent_ops.router)
 app.include_router(agent_emails.router)
+app.include_router(agent_branding.router)
+app.include_router(agent_branding.admin_router)
 
 # --- ML ranking model -------------------------------------------------
 # Trained by backend/ml/train_model.py on backend/ml/supplier_training_data.csv.
